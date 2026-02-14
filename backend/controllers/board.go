@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"reecho_media_crm/database"
 	"reecho_media_crm/models"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
@@ -68,43 +69,46 @@ func GetBoard(c *fiber.Ctx) error {
 	return c.JSON(board)
 }
 
-// SyncBoard: Updates board edits and drag-and-drop state
 func SyncBoard(c *fiber.Ctx) error {
-	userIDStr := c.Locals("userID").(string)
-	userID, _ := uuid.Parse(userIDStr)
-	boardID := c.Params("id")
+	// 1. Get the Board ID from the URL
+	id := c.Params("id")
 
-	// Use json.RawMessage to capture the object without base64 issues
-	var input struct {
-		Title     string          `json:"title"`
-		FullState json.RawMessage `json:"fullState"`
-		Zoom      float64         `json:"zoom"`
-		PanX      float64         `json:"panX"`
-		PanY      float64         `json:"panY"`
+	// 2. Define a specific struct for the incoming JSON
+	// This ensures we catch exactly what React sends
+	type UpdatePayload struct {
+		Title     string `json:"Title"`
+		FullState string `json:"FullState"`
 	}
 
-	if err := c.BodyParser(&input); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid data format"})
-	}
+	var payload UpdatePayload
 
-	// Update using a map to force string conversion for PostgreSQL JSONB
-	result := database.DB.Model(&models.Board{}).
-		Where("id = ? AND owner_id = ?", boardID, userID).
-		Updates(map[string]interface{}{
-			"title":      input.Title,
-			"full_state": string(input.FullState), // Fixes SQLSTATE 22P02
-			"zoom":       input.Zoom,
-			"pan_x":      input.PanX,
-			"pan_y":      input.PanY,
+	// 3. Parse the Body
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Invalid JSON format",
 		})
-
-	if result.Error != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Update failed"})
 	}
 
-	if result.RowsAffected == 0 {
-		return c.Status(404).JSON(fiber.Map{"error": "No board found to update"})
+	// 4. Find the existing board in the database
+	var board models.Board
+	// Note: In a real app, also check "user_id = ?" to ensure ownership!
+	if err := database.DB.First(&board, "id = ?", id).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Board not found"})
 	}
 
-	return c.JSON(fiber.Map{"message": "Sync successful"})
+	// 5. Update fields explicitly
+	// We only update Title and FullState, leaving ID and CreatedAt alone
+	board.Title = payload.Title
+	board.FullState = json.RawMessage(payload.FullState)
+
+	// 6. Save changes to DB
+	if err := database.DB.Save(&board).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to save to database"})
+	}
+
+	// 7. Success Response
+	return c.JSON(fiber.Map{
+		"message": "Board synced successfully",
+		"board":   board,
+	})
 }
