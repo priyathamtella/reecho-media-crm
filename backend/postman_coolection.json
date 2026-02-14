@@ -1,0 +1,112 @@
+{
+	"info": {
+		"name": "Reecho Media CRM - Board API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Register",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Tejesh\",\n    \"email\": \"tejesh@example.com\",\n    \"password\": \"password123\"\n}",
+							"options": { "json": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/register", "host": ["{{baseUrl}}"], "path": ["register"] }
+					}
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.token) {",
+									"    pm.collectionVariables.set(\"jwt_token\", jsonData.token);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"tejesh@example.com\",\n    \"password\": \"password123\"\n}",
+							"options": { "json": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/login", "host": ["{{baseUrl}}"], "path": ["login"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "Boards",
+			"item": [
+				{
+					"name": "Create Board",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Marketing 2026\"\n}",
+							"options": { "json": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/api/boards", "host": ["{{baseUrl}}"], "path": ["api", "boards"] }
+					}
+				},
+				{
+					"name": "Get All Boards",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text" }
+						],
+						"url": { "raw": "{{baseUrl}}/api/boards", "host": ["{{baseUrl}}"], "path": ["api", "boards"] }
+					}
+				},
+				{
+					"name": "Get Specific Board",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text" }
+						],
+						"url": { "raw": "{{baseUrl}}/api/boards/:id", "host": ["{{baseUrl}}"], "path": ["api", "boards", ":id"], "variable": [{ "key": "id", "value": "PASTE_UUID_HERE" }] }
+					}
+				},
+				{
+					"name": "Sync Board",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Updated Board Title\",\n    \"zoom\": 1.2,\n    \"panX\": 100,\n    \"panY\": -50,\n    \"fullState\": {\n        \"card_1\": {\n            \"id\": \"card_1\",\n            \"type\": \"text\",\n            \"content\": \"Hello from Postman!\"\n        }\n    }\n}",
+							"options": { "json": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/api/boards/:id/sync", "host": ["{{baseUrl}}"], "path": ["api", "boards", ":id", "sync"], "variable": [{ "key": "id", "value": "PASTE_UUID_HERE" }] }
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{ "key": "baseUrl", "value": "http://localhost:5000" },
+		{ "key": "jwt_token", "value": "" }
+	]
+}
