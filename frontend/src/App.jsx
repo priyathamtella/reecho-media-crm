@@ -1,61 +1,40 @@
 import { Route, Routes, Navigate } from "react-router-dom";
 import Login from "./components/Login";
 import Register from "./components/Register";
+import Welcome from "./components/Welcome";
 import Home from "./components/Home";
-import Board from "./components/Board"; // Add this import
+import Board from "./components/Board";
 import PageNotFound from "./components/PageNotFound";
-import Profile from "./components/Profile"
+import Profile from "./components/Profile";
+import AppLayout from "./components/AppLayout";
+import DocumentEditor from "./components/DocumentEditor";
 
-// Logic to protect private routes using the JWT
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('token');
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
+  if (!token) return <Navigate to="/login" replace />;
   return children;
 };
 
 function App() {
   return (
-    <>
-      <Routes>
-        {/* Public Routes */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+    <Routes>
+      {/* Public */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
 
-        {/* Protected Dashboard/Home Route */}
-        <Route 
-          path="/" 
-          element={
-            <ProtectedRoute>
-              <Home />
-            </ProtectedRoute>
-          } 
-        />
+      {/* Welcome */}
+      <Route path="/welcome" element={<ProtectedRoute><Welcome /></ProtectedRoute>} />
 
-        {/* Protected Board Workspace Route */}
-        <Route 
-          path="/boards/:id" 
-          element={
-            <ProtectedRoute>
-              <Board />
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/profile" 
-          element={
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          } 
-        />
+      {/* Protected – with sidebar */}
+      <Route path="/" element={<ProtectedRoute><AppLayout><Home /></AppLayout></ProtectedRoute>} />
+      <Route path="/boards/:id" element={<ProtectedRoute><AppLayout><Board /></AppLayout></ProtectedRoute>} />
+      <Route path="/profile" element={<ProtectedRoute><AppLayout><Profile /></AppLayout></ProtectedRoute>} />
+      <Route path="/docs/:id" element={<ProtectedRoute><AppLayout><DocumentEditor /></AppLayout></ProtectedRoute>} />
 
-        {/* Navigation Helpers */}
-        <Route path="/home" element={<Navigate to="/" replace />} />
-        <Route path="*" element={<PageNotFound />} />
-      </Routes>
-    </>
+      {/* Helpers */}
+      <Route path="/home" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<PageNotFound />} />
+    </Routes>
   );
 }
 

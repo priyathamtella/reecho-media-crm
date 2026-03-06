@@ -27,6 +27,6 @@ func DBconnect() {
 		log.Fatalf("Unable to connect to database: %v\n", err)
 	}
 	// Auto migrate the schema
-	DB.AutoMigrate(&models.User{}, &models.Board{})
+	DB.AutoMigrate(&models.User{}, &models.Board{}, &models.Document{})
 	fmt.Println(" DB connected successfully....")
 }

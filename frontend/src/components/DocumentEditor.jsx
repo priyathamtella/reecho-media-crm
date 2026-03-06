@@ -1,0 +1,300 @@
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import axios from "axios";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+    Save, Loader2, ArrowLeft, Link as LinkIcon, FileText,
+    Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight,
+    List, ListOrdered, Type, Heading1, Heading2, Minus, ExternalLink,
+    Trash2, X, Check
+} from "lucide-react";
+
+const API = "http://localhost:5050/api";
+
+const DocumentEditor = () => {
+    const { id } = useParams();
+    const navigate = useNavigate();
+
+    const [doc, setDoc] = useState(null);
+    const [title, setTitle] = useState("");
+    const [saving, setSaving] = useState(false);
+    const [saveStatus, setSaveStatus] = useState("idle"); // idle | saving | saved | error
+    const [loading, setLoading] = useState(true);
+    const [isDark] = useState(() => localStorage.getItem("theme") === "dark");
+    const [showLinkModal, setShowLinkModal] = useState(false);
+    const [boards, setBoards] = useState([]);
+    const [linkedBoardId, setLinkedBoardId] = useState(null);
+    const [editingTitle, setEditingTitle] = useState(false);
+    const editorRef = useRef(null);
+    const saveTimer = useRef(null);
+
+    const dm = isDark;
+
+    // ── FETCH DOC ───────────────────────────────
+    useEffect(() => {
+        const fetchDoc = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const res = await axios.get(`${API}/docs/${id}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                setDoc(res.data);
+                setTitle(res.data.Title);
+                setLinkedBoardId(res.data.LinkedBoardID || null);
+                if (editorRef.current) {
+                    editorRef.current.innerHTML = res.data.Content || "<p>Start writing your document here...</p>";
+                }
+                setLoading(false);
+            } catch (err) {
+                if (err.response?.status === 401) navigate("/login");
+                if (err.response?.status === 404) navigate("/");
+            }
+        };
+        fetchDoc();
+    }, [id, navigate]);
+
+    // ── FETCH BOARDS (for linking) ───────────────
+    useEffect(() => {
+        const fetchBoards = async () => {
+            const token = localStorage.getItem("token");
+            const res = await axios.get(`${API}/boards`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setBoards(res.data || []);
+        };
+        fetchBoards();
+    }, []);
+
+    // ── AUTO-SAVE ────────────────────────────────
+    const triggerSave = useCallback((overrideTitle) => {
+        if (saveTimer.current) clearTimeout(saveTimer.current);
+        saveTimer.current = setTimeout(async () => {
+            setSaveStatus("saving");
+            try {
+                const token = localStorage.getItem("token");
+                const content = editorRef.current?.innerHTML || "";
+                await axios.put(`${API}/docs/${id}`, {
+                    title: overrideTitle ?? title,
+                    content,
+                    linkedBoardId: linkedBoardId || "",
+                }, { headers: { Authorization: `Bearer ${token}` } });
+                setSaveStatus("saved");
+                setTimeout(() => setSaveStatus("idle"), 2500);
+            } catch {
+                setSaveStatus("error");
+            }
+        }, 900);
+    }, [id, title, linkedBoardId]);
+
+    // ── TOOLBAR COMMANDS ─────────────────────────
+    const execCmd = (command, value = null) => {
+        document.execCommand(command, false, value);
+        editorRef.current?.focus();
+        triggerSave();
+    };
+
+    // ── LINK TO BOARD ────────────────────────────
+    const handleLink = async (boardId) => {
+        setLinkedBoardId(boardId);
+        setShowLinkModal(false);
+        // Save immediately with new link
+        setSaveStatus("saving");
+        try {
+            const token = localStorage.getItem("token");
+            const content = editorRef.current?.innerHTML || "";
+            await axios.put(`${API}/docs/${id}`, {
+                title, content, linkedBoardId: boardId || "",
+            }, { headers: { Authorization: `Bearer ${token}` } });
+            setSaveStatus("saved");
+            setTimeout(() => setSaveStatus("idle"), 2000);
+        } catch { setSaveStatus("error"); }
+    };
+
+    // ── DELETE ───────────────────────────────────
+    const handleDelete = async () => {
+        if (!window.confirm("Delete this document? This cannot be undone.")) return;
+        const token = localStorage.getItem("token");
+        await axios.delete(`${API}/docs/${id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        navigate("/");
+    };
+
+    if (loading) return (
+        <div className={`h-full flex items-center justify-center gap-2 ${dm ? "bg-slate-900 text-white" : "bg-gray-50 text-slate-600"}`}>
+            <Loader2 className="animate-spin" /> Loading document...
+        </div>
+    );
+
+    const linkedBoard = boards.find(b => String(b.ID) === String(linkedBoardId));
+
+    return (
+        <div className={`h-full flex flex-col ${dm ? "bg-slate-900 text-white" : "bg-gray-50 text-slate-900"}`}>
+
+            {/* ── TOPBAR ── */}
+            <div className={`flex items-center justify-between px-6 py-3 border-b flex-shrink-0 ${dm ? "bg-slate-950 border-slate-800" : "bg-white border-slate-200"} shadow-sm`}>
+                <div className="flex items-center gap-3">
+                    <button onClick={() => navigate("/")} className={`p-1.5 rounded-lg transition-colors ${dm ? "hover:bg-slate-800 text-slate-400" : "hover:bg-slate-100 text-slate-500"}`}>
+                        <ArrowLeft size={16} />
+                    </button>
+                    <FileText size={18} className="text-indigo-500" />
+
+                    {/* Title */}
+                    {editingTitle ? (
+                        <div className="flex items-center gap-2">
+                            <input
+                                autoFocus
+                                className={`text-base font-bold outline-none border-b ${dm ? "bg-transparent border-indigo-400 text-white" : "bg-transparent border-indigo-500 text-slate-900"}`}
+                                value={title}
+                                onChange={e => setTitle(e.target.value)}
+                                onBlur={() => { setEditingTitle(false); triggerSave(title); }}
+                                onKeyDown={e => { if (e.key === "Enter") { setEditingTitle(false); triggerSave(title); } }}
+                            />
+                            <button onClick={() => { setEditingTitle(false); triggerSave(title); }} className="text-emerald-500"><Check size={14} /></button>
+                        </div>
+                    ) : (
+                        <button onClick={() => setEditingTitle(true)} className={`text-base font-bold hover:opacity-70 transition-opacity ${dm ? "text-white" : "text-slate-900"}`}>
+                            {title || "Untitled"}
+                        </button>
+                    )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                    {/* Save status */}
+                    <span className={`text-xs font-medium transition-all ${saveStatus === "saving" ? "text-amber-500" : saveStatus === "saved" ? "text-emerald-500" : saveStatus === "error" ? "text-rose-500" : "opacity-0"}`}>
+                        {saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "✓ Saved" : saveStatus === "error" ? "Save failed" : "·"}
+                    </span>
+
+                    {/* Linked board badge */}
+                    {linkedBoard && (
+                        <Link to={`/boards/${linkedBoard.ID}`}
+                            className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-200 transition-colors">
+                            <ExternalLink size={11} /> Board: {linkedBoard.Title.slice(0, 16)}
+                        </Link>
+                    )}
+
+                    {/* Link to board button */}
+                    <button onClick={() => setShowLinkModal(true)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${dm ? "border-slate-700 text-slate-300 hover:bg-slate-800" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+                        <LinkIcon size={13} /> {linkedBoard ? "Change Link" : "Link to Board"}
+                    </button>
+
+                    {/* Save */}
+                    <button onClick={() => triggerSave()}
+                        className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
+                        {saveStatus === "saving" ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Save
+                    </button>
+
+                    {/* Delete */}
+                    <button onClick={handleDelete} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors">
+                        <Trash2 size={15} />
+                    </button>
+                </div>
+            </div>
+
+            {/* ── FORMATTING TOOLBAR ── */}
+            <div className={`flex flex-wrap items-center gap-0.5 px-6 py-2 border-b flex-shrink-0 ${dm ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"}`}>
+                {/* Text style */}
+                <ToolGroup>
+                    <FmtBtn icon={<Bold size={14} />} onClick={() => execCmd("bold")} title="Bold" dm={dm} />
+                    <FmtBtn icon={<Italic size={14} />} onClick={() => execCmd("italic")} title="Italic" dm={dm} />
+                    <FmtBtn icon={<Underline size={14} />} onClick={() => execCmd("underline")} title="Underline" dm={dm} />
+                </ToolGroup>
+                <Sep dm={dm} />
+                {/* Headings */}
+                <ToolGroup>
+                    <FmtBtn icon={<Heading1 size={14} />} onClick={() => execCmd("formatBlock", "h1")} title="Heading 1" dm={dm} />
+                    <FmtBtn icon={<Heading2 size={14} />} onClick={() => execCmd("formatBlock", "h2")} title="Heading 2" dm={dm} />
+                    <FmtBtn icon={<Type size={14} />} onClick={() => execCmd("formatBlock", "p")} title="Paragraph" dm={dm} />
+                </ToolGroup>
+                <Sep dm={dm} />
+                {/* Lists */}
+                <ToolGroup>
+                    <FmtBtn icon={<List size={14} />} onClick={() => execCmd("insertUnorderedList")} title="Bullet List" dm={dm} />
+                    <FmtBtn icon={<ListOrdered size={14} />} onClick={() => execCmd("insertOrderedList")} title="Numbered List" dm={dm} />
+                </ToolGroup>
+                <Sep dm={dm} />
+                {/* Alignment */}
+                <ToolGroup>
+                    <FmtBtn icon={<AlignLeft size={14} />} onClick={() => execCmd("justifyLeft")} title="Left" dm={dm} />
+                    <FmtBtn icon={<AlignCenter size={14} />} onClick={() => execCmd("justifyCenter")} title="Center" dm={dm} />
+                    <FmtBtn icon={<AlignRight size={14} />} onClick={() => execCmd("justifyRight")} title="Right" dm={dm} />
+                </ToolGroup>
+                <Sep dm={dm} />
+                {/* Font color */}
+                <ToolGroup>
+                    {["#1e293b", "#6366f1", "#ef4444", "#10b981", "#f59e0b", "#ec4899"].map(c => (
+                        <button key={c} onClick={() => execCmd("foreColor", c)}
+                            title="Font color"
+                            className="w-5 h-5 rounded-full border-2 border-white shadow hover:scale-125 transition-transform"
+                            style={{ backgroundColor: c }} />
+                    ))}
+                </ToolGroup>
+                <Sep dm={dm} />
+                {/* Divider */}
+                <FmtBtn icon={<Minus size={14} />} onClick={() => execCmd("insertHorizontalRule")} title="Divider" dm={dm} />
+            </div>
+
+            {/* ── EDITOR full bleed ── */}
+            <div
+                ref={editorRef}
+                contentEditable
+                suppressContentEditableWarning
+                onInput={() => triggerSave()}
+                className={`flex-1 overflow-y-auto outline-none px-16 py-12 text-base leading-9 ${dm ? "text-slate-100" : "text-slate-800"}`}
+                style={{ fontFamily: "'Inter', sans-serif", minHeight: 0 }}
+            />
+            {/* Global "page" styles injected for contenteditable */}
+            <style>{`
+        [contenteditable] h1 { font-size: 2em; font-weight: 900; margin: 0.5em 0; }
+        [contenteditable] h2 { font-size: 1.5em; font-weight: 800; margin: 0.4em 0; }
+        [contenteditable] ul { list-style: disc; paddingLeft: 1.5em; }
+        [contenteditable] ol { list-style: decimal; paddingLeft: 1.5em; }
+        [contenteditable] hr { border: none; border-top: 2px solid #e2e8f0; margin: 1em 0; }
+        [contenteditable]:empty:before { content: "Start writing..."; opacity: 0.35; }
+      `}</style>
+
+            {/* ── LINK BOARD MODAL ── */}
+            <AnimatePresence>
+                {showLinkModal && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+                        <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}
+                            transition={{ type: "spring", bounce: 0.3 }}
+                            className={`w-full max-w-sm rounded-2xl shadow-2xl p-6 border ${dm ? "bg-slate-900 border-slate-700" : "bg-white border-slate-100"}`}>
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className={`font-black text-base ${dm ? "text-white" : "text-slate-900"}`}>Link to Board</h3>
+                                <button onClick={() => setShowLinkModal(false)} className="text-slate-400"><X size={18} /></button>
+                            </div>
+                            <p className={`text-xs mb-3 ${dm ? "text-slate-400" : "text-slate-500"}`}>Connect this document to a board for quick navigation.</p>
+                            <div className="space-y-1 max-h-56 overflow-y-auto mb-4">
+                                {/* Unlink option */}
+                                <button onClick={() => handleLink(null)}
+                                    className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-colors ${!linkedBoardId ? "bg-indigo-600 text-white" : (dm ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100")}`}>
+                                    None (no link)
+                                </button>
+                                {boards.map(b => (
+                                    <button key={b.ID} onClick={() => handleLink(b.ID)}
+                                        className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-colors ${String(linkedBoardId) === String(b.ID) ? "bg-indigo-600 text-white" : (dm ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100")}`}>
+                                        {b.Title}
+                                    </button>
+                                ))}
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+};
+
+const ToolGroup = ({ children }) => <div className="flex gap-0.5">{children}</div>;
+const Sep = ({ dm }) => <div className={`w-px h-5 mx-1 ${dm ? "bg-slate-700" : "bg-slate-200"}`} />;
+const FmtBtn = ({ icon, onClick, title, dm }) => (
+    <button onClick={onClick} title={title}
+        className={`p-1.5 rounded-lg transition-colors ${dm ? "text-slate-400 hover:bg-slate-700 hover:text-white" : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"}`}>
+        {icon}
+    </button>
+);
+
+export default DocumentEditor;

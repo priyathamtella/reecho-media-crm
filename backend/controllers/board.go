@@ -112,3 +112,21 @@ func SyncBoard(c *fiber.Ctx) error {
 		"board":   board,
 	})
 }
+
+// DeleteBoard: Permanently removes a board (only if the user owns it)
+func DeleteBoard(c *fiber.Ctx) error {
+	userIDStr := c.Locals("userID").(string)
+	userID, _ := uuid.Parse(userIDStr)
+	boardID := c.Params("id")
+
+	var board models.Board
+	if err := database.DB.Where("id = ? AND owner_id = ?", boardID, userID).First(&board).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Board not found or you don't own it"})
+	}
+
+	if err := database.DB.Delete(&board).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to delete board"})
+	}
+
+	return c.JSON(fiber.Map{"message": "Board deleted successfully"})
+}
