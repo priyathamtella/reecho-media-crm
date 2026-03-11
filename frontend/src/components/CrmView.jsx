@@ -458,8 +458,18 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                           <div className="task-client">📌 {task.client||"General"}</div>
                           <div className="task-footer" style={{marginTop:"8px"}}>
                             <div className="task-due" style={{color:status==="Done"?"var(--accent3)":"",fontSize:"11px"}}>{status==="Done"?"✓ Done":task.due_date||"—"}</div>
-                            <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
-                              {task.assignees&&<div className="avatar av-purple" style={{width:"20px",height:"20px",fontSize:"8px"}}>{task.assignees.substring(0,2).toUpperCase()}</div>}
+                            {/* Avatar stack for multiple assignees */}
+                            <div style={{display:"flex",alignItems:"center"}}>
+                              {task.assignees ? task.assignees.split(",").filter(Boolean).map((name,i) => {
+                                const mem = team.find(m=>m.name===name.trim()||m.initials===name.trim());
+                                return (
+                                  <div key={i} className={`avatar ${mem?.color||"av-purple"}`}
+                                    style={{width:"20px",height:"20px",fontSize:"7px",marginLeft:i>0?"-6px":"0",border:"1.5px solid var(--surface)",zIndex:i,flexShrink:0}}
+                                    title={name.trim()}>
+                                    {(mem?.initials||name.trim()).substring(0,2).toUpperCase()}
+                                  </div>
+                                );
+                              }) : null}
                             </div>
                           </div>
                           {/* Status selector */}
@@ -902,11 +912,49 @@ export default function CrmView({ currentPage, setCurrentPage }) {
               </select>
             </Field>
             <Field label="Due Date"><input style={inputSt} type="date" value={editTask?editTask.due_date:fTask.due_date} onChange={e=>editTask?setEditTask({...editTask,due_date:e.target.value}):setFTask({...fTask,due_date:e.target.value})} /></Field>
-            <Field label="Assignee">
-              <select style={inputSt} value={editTask?editTask.assignees:fTask.assignees} onChange={e=>editTask?setEditTask({...editTask,assignees:e.target.value}):setFTask({...fTask,assignees:e.target.value})}>
-                <option value="">Select team member</option>
-                {team.map(m=><option key={m.ID} value={m.initials||m.name}>{m.name} — {m.role}</option>)}
-              </select>
+            <Field label="Assign Members">
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px",maxHeight:"160px",overflowY:"auto",padding:"2px"}}>
+                {team.length===0 && <div style={{fontSize:"12px",color:"var(--muted)",gridColumn:"1/-1"}}>No team members yet</div>}
+                {team.map(m => {
+                  const currentVal = editTask ? editTask.assignees : fTask.assignees;
+                  const names = (currentVal||"").split(",").map(s=>s.trim()).filter(Boolean);
+                  const checked = names.includes(m.name);
+                  return (
+                    <label key={m.ID}
+                      style={{display:"flex",alignItems:"center",gap:"8px",padding:"7px 10px",borderRadius:"8px",cursor:"pointer",
+                        border:`1px solid ${checked?"var(--accent)":"var(--border)"}`,
+                        background:checked?"rgba(108,99,255,0.1)":"var(--surface)",transition:"all 0.15s"}}
+                    >
+                      <input type="checkbox" checked={checked} style={{display:"none"}}
+                        onChange={() => {
+                          const updated = checked
+                            ? names.filter(n=>n!==m.name).join(",")
+                            : [...names, m.name].join(",");
+                          editTask ? setEditTask({...editTask,assignees:updated}) : setFTask({...fTask,assignees:updated});
+                        }}
+                      />
+                      <div className={`avatar ${m.color||"av-blue"}`} style={{width:"24px",height:"24px",fontSize:"8px",flexShrink:0}}>
+                        {m.initials||m.name.substring(0,2).toUpperCase()}
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:"11px",fontWeight:"700",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.name}</div>
+                        <div style={{fontSize:"9px",color:"var(--muted)"}}>{m.role}</div>
+                      </div>
+                      {checked && <span style={{color:"var(--accent)",fontSize:"14px",flexShrink:0}}>✓</span>}
+                    </label>
+                  );
+                })}
+              </div>
+              {/* Show selected names */}
+              {(() => {
+                const val = editTask ? editTask.assignees : fTask.assignees;
+                const names = (val||"").split(",").filter(Boolean);
+                return names.length>0 ? (
+                  <div style={{marginTop:"8px",fontSize:"11px",color:"var(--muted)"}}>
+                    Assigned to: <span style={{color:"var(--accent)",fontWeight:"600"}}>{names.join(", ")}</span>
+                  </div>
+                ) : null;
+              })()}
             </Field>
             <button type="submit" className="btn btn-primary" style={{width:"100%",padding:"12px",marginTop:"4px",borderRadius:"8px"}}>{editTask?"Save Changes":"Create Task"}</button>
           </form>
