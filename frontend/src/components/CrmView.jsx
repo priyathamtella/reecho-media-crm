@@ -190,8 +190,14 @@ export default function CrmView({ currentPage, setCurrentPage }) {
 
   /* ─── Auto-derive member stats from live tasks ───── */
   const getMemberStats = (m) => {
-    const key = m.name;
-    const assigned   = tasks.filter(t => t.assignees === key || t.assignees === m.initials);
+    // assignees is now a comma-separated string e.g. "Zara,Priya,Kiran"
+    // so we split and check if this member's name is in the list
+    const isMemberAssigned = (t) => {
+      if (!t.assignees) return false;
+      const names = t.assignees.split(",").map(s => s.trim());
+      return names.includes(m.name) || names.includes(m.initials);
+    };
+    const assigned   = tasks.filter(isMemberAssigned);
     const completed  = assigned.filter(t => t.status === "Done");
     const inProgress = assigned.filter(t => t.status === "In Progress");
     return {
