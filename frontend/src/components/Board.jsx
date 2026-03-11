@@ -46,10 +46,80 @@ const Board = () => {
   const [currentPath, setCurrentPath] = useState([]);
 
   const [zoom, setZoom] = useState(1);
+  const zoomRef = useRef(1);
+  // pan = translate offset so the canvas inner div stays correctly positioned
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const panRef = useRef({ x: 0, y: 0 });
   const [saveStatus, setSaveStatus] = useState("idle");
   const [bgType, setBgType] = useState("dots");
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("theme") === "dark");
   const [presentationMode, setPresentationMode] = useState(false);
+
+  // Keep refs in sync with state so event handlers always see latest values
+  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+  useEffect(() => { panRef.current = pan; }, [pan]);
+
+  // ── Helper: screen (clientX/Y) → canvas coordinates ──────────────────────
+  // Must use refs so it can be called inside event handlers without stale closure.
+  const toCanvas = useCallback((clientX, clientY) => {
+    const rect = containerRef.current?.getBoundingClientRect() ?? { left: 0, top: 0 };
+    return {
+      mx: (clientX - rect.left - panRef.current.x) / zoomRef.current,
+      my: (clientY - rect.top  - panRef.current.y) / zoomRef.current,
+    };
+  }, []);
+
+  // ── MOUSE WHEEL ZOOM-TO-CURSOR ────────────────────────────────────────────
+  // Attached after isLoaded so containerRef is populated.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const handleWheel = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const rect = el.getBoundingClientRect();
+      // Cursor position relative to the container
+      const cursorX = e.clientX - rect.left;
+      const cursorY = e.clientY - rect.top;
+
+      const ZOOM_SPEED = 0.0015;
+      const delta = -e.deltaY * ZOOM_SPEED;
+
+      const prevZoom = zoomRef.current;
+      const prevPan  = panRef.current;
+
+      // Clamp new zoom
+      const rawZoom = prevZoom + delta * prevZoom;
+      const newZoom = Math.round(Math.min(3, Math.max(0.15, rawZoom)) * 1000) / 1000;
+
+      // Canvas point currently under the cursor
+      const canvasX = (cursorX - prevPan.x) / prevZoom;
+      const canvasY = (cursorY - prevPan.y) / prevZoom;
+
+      // New pan so the same canvas point stays under the cursor
+      let newPanX = cursorX - canvasX * newZoom;
+      let newPanY = cursorY - canvasY * newZoom;
+
+      // Clamp pan so the canvas never shows empty space outside its bounds.
+      // The scaled canvas is CANVAS_SIZE*newZoom wide/tall.
+      const scaledW = CANVAS_SIZE * newZoom;
+      const scaledH = CANVAS_SIZE * newZoom;
+      const cW = rect.width;
+      const cH = rect.height;
+      // If the scaled canvas is smaller than the container, centre it;
+      // otherwise clamp so neither edge passes the container edge.
+      newPanX = scaledW < cW ? (cW - scaledW) / 2 : Math.min(0, Math.max(cW - scaledW, newPanX));
+      newPanY = scaledH < cH ? (cH - scaledH) / 2 : Math.min(0, Math.max(cH - scaledH, newPanY));
+
+      zoomRef.current = newZoom;
+      panRef.current  = { x: newPanX, y: newPanY };
+      setZoom(newZoom);
+      setPan({ x: newPanX, y: newPanY });
+    };
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, [isLoaded]);
 
   // Media modal
   const [mediaModal, setMediaModal] = useState(null); // null | 'image' | 'video'
@@ -207,8 +277,7 @@ const Board = () => {
 
   const handleMouseDown = (e) => {
     if (e.button !== 0) return;
-    const mx = e.pageX / zoom;
-    const my = e.pageY / zoom;
+    const { mx, my } = toCanvas(e.clientX, e.clientY);
     if (tool === "draw") { setIsDrawing(true); setCurrentPath([{ x: mx, y: my }]); return; }
     if (tool === "eraser") {
       setIsDrawing(true);
@@ -225,8 +294,7 @@ const Board = () => {
   };
 
   const handleMouseMove = (e) => {
-    const mx = e.pageX / zoom;
-    const my = e.pageY / zoom;
+    const { mx, my } = toCanvas(e.clientX, e.clientY);
     if (isDrawing && tool === "draw") { setCurrentPath(prev => [...prev, { x: mx, y: my }]); return; }
     if (isDrawing && tool === "eraser") {
       const remaining = items.filter(item => {
@@ -275,18 +343,19 @@ const Board = () => {
     if (tool === "draw" || tool === "eraser") return;
     e.stopPropagation();
     if (e.button === 0 && editingId !== item.id) {
+      const { mx, my } = toCanvas(e.clientX, e.clientY);
       setDraggingId(item.id); setSelectedId(item.id);
-      setOffset({ x: e.pageX / zoom - item.x, y: e.pageY / zoom - item.y });
+      setOffset({ x: mx - item.x, y: my - item.y });
     }
   };
 
   // ── 7. ADD ITEM ───────────────────────────────
   const addItem = (type, src = "") => {
     setTool("select");
-    const scrollX = containerRef.current?.scrollLeft || 0;
-    const scrollY = containerRef.current?.scrollTop || 0;
-    const cx = (scrollX + window.innerWidth * 0.35) / zoom;
-    const cy = (scrollY + window.innerHeight / 2) / zoom;
+    // Place new items in the centre of the currently visible canvas viewport
+    const rect = containerRef.current?.getBoundingClientRect() ?? { width: window.innerWidth, height: window.innerHeight };
+    const cx = (rect.width  / 2 - panRef.current.x) / zoomRef.current;
+    const cy = (rect.height / 2 - panRef.current.y) / zoomRef.current;
 
     const defaults = {
       text: { w: 240, h: 120 },
@@ -577,8 +646,9 @@ const Board = () => {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseDown={handleMouseDown}
+        id="board-canvas-area"
       >
-        <div className="relative origin-top-left" style={{ width: CANVAS_SIZE, height: CANVAS_SIZE, transform: `scale(${zoom})` }}>
+        <div className="relative" style={{ width: CANVAS_SIZE, height: CANVAS_SIZE, transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "0 0" }}>
 
           {/* Background pattern */}
           <div className="absolute inset-0 pointer-events-none" style={{
