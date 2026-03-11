@@ -95,7 +95,7 @@ const AppLayout = ({ children }) => {
             const token = localStorage.getItem("token");
             await axios.delete(`${API}/boards/${boardId}`, { headers: { Authorization: `Bearer ${token}` } });
             setBoards(prev => prev.filter(b => String(b.ID) !== String(boardId)));
-            if (String(activeBoardId) === String(boardId)) navigate("/");
+            if (String(activeBoardId) === String(boardId)) navigate("/dashboard");
         } catch { alert("Failed to delete board."); }
     };
 
@@ -107,7 +107,7 @@ const AppLayout = ({ children }) => {
             const token = localStorage.getItem("token");
             await axios.delete(`${API}/docs/${docId}`, { headers: { Authorization: `Bearer ${token}` } });
             setDocs(prev => prev.filter(d => String(d.ID) !== String(docId)));
-            if (String(activeDocId) === String(docId)) navigate("/");
+            if (String(activeDocId) === String(docId)) navigate("/dashboard");
         } catch { alert("Failed to delete document."); }
     };
 
@@ -136,12 +136,12 @@ const AppLayout = ({ children }) => {
 
                     {/* ── BOARD & DOCUMENT BUTTON ── */}
                     <button
-                        onClick={() => { setCurrentPage("boards"); navigate("/"); }}
-                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all mb-1 ${currentPage === "boards" && location.pathname === "/"
+                        onClick={() => { setCurrentPage("boards"); navigate("/dashboard"); }}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all mb-1 ${currentPage === "boards" && location.pathname === "/dashboard"
                             ? "bg-indigo-600 text-white shadow-md"
                             : isDark ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100"}`}
                     >
-                        <LayoutGrid size={14} className={currentPage === "boards" && location.pathname === "/" ? "text-white" : "text-indigo-500"} />
+                        <LayoutGrid size={14} className={currentPage === "boards" && location.pathname === "/dashboard" ? "text-white" : "text-indigo-500"} />
                         Board &amp; Document
                     </button>
 
@@ -158,12 +158,12 @@ const AppLayout = ({ children }) => {
                             { page:"portal",    label:"Client Hub",       Icon:ExternalLink },
                         ].map(({ page, label, Icon }) => (
                             <button key={page}
-                                onClick={() => { setCurrentPage(page); navigate("/"); }}
-                                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all mb-1 ${currentPage === page && location.pathname === "/"
+                                onClick={() => { setCurrentPage(page); navigate("/dashboard"); }}
+                                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all mb-1 ${currentPage === page && location.pathname === "/dashboard"
                                     ? "bg-indigo-600 text-white shadow-md"
                                     : isDark ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100"}`}
                             >
-                                <Icon size={14} className={currentPage === page && location.pathname === "/" ? "text-white" : "text-indigo-500"} />
+                                <Icon size={14} className={currentPage === page && location.pathname === "/dashboard" ? "text-white" : "text-indigo-500"} />
                                 {label}
                             </button>
                         ))}
