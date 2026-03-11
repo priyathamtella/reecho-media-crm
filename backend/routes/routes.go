@@ -29,4 +29,27 @@ func SetupRoutes(app *fiber.App) {
 	api.Put("/docs/:id", controllers.UpdateDocument)                  // Update doc
 	api.Delete("/docs/:id", controllers.DeleteDocument)               // Delete doc
 	api.Get("/boards/:boardId/docs", controllers.GetDocumentsByBoard) // Docs linked to board
+
+	// CRM Endpoints
+	api.Get("/clients", controllers.GetClients)
+	api.Post("/clients", controllers.CreateClient)
+	api.Delete("/clients/:id", controllers.DeleteClient)
+
+	api.Get("/tasks", controllers.GetTasks)
+	api.Post("/tasks", controllers.CreateTask)
+	api.Put("/tasks/:id", controllers.UpdateTask)
+	api.Delete("/tasks/:id", controllers.DeleteTask)
+
+	api.Get("/invoices", controllers.GetInvoices)
+	api.Post("/invoices", controllers.CreateInvoice)
+
+	api.Get("/team", controllers.GetTeamMembers)
+	api.Post("/team", controllers.CreateTeamMember)
+	api.Put("/team/:id", controllers.UpdateTeamMember)
+	api.Delete("/team/:id", controllers.DeleteTeamMember)
+
+	// Calendar Event Endpoints
+	api.Get("/calendar", controllers.GetCalendarEvents)
+	api.Post("/calendar", controllers.CreateCalendarEvent)
+	api.Delete("/calendar/:id", controllers.DeleteCalendarEvent)
 }

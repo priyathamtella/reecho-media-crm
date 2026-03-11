@@ -3,11 +3,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Type, Square, Circle, Minus, MoveRight, Video,
+  Type, Square, Circle, Triangle, Minus, MoveRight, Video,
   Trash2, Image as ImageIcon, CloudUpload, Loader2,
   Sun, Moon, Projector, X, PenTool, MousePointer2, Eraser,
   Upload, Link, Cloud, StickyNote, Smile, ZoomIn, ZoomOut,
-  Play, Pause, Film, ChevronDown, ChevronUp, Edit3, Check
+  Play, Pause, Edit3, Check
 } from "lucide-react";
 
 // ─────────────────────────────────────────────
@@ -60,14 +60,7 @@ const Board = () => {
   // Emoji panel
   const [showEmoji, setShowEmoji] = useState(false);
 
-  // Timeline
-  const [timelineOpen, setTimelineOpen] = useState(false);
-  const [timelinePlayhead, setTimelinePlayhead] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const timelineRef = useRef(null);
-
   const CANVAS_SIZE = 4000;
-  const TOTAL_DURATION = 60; // seconds (timeline = 60s default)
 
   // ── 1. PARSER ──────────────────────────────
   const parseBoardData = (fullState) => {
@@ -123,17 +116,6 @@ const Board = () => {
     fetchBoard();
   }, [id, navigate]);
 
-  // ── 4. TIMELINE PLAYHEAD ─────────────────────
-  useEffect(() => {
-    if (!isPlaying) return;
-    const interval = setInterval(() => {
-      setTimelinePlayhead(prev => {
-        if (prev >= TOTAL_DURATION) { setIsPlaying(false); return 0; }
-        return prev + 0.1;
-      });
-    }, 100);
-    return () => clearInterval(interval);
-  }, [isPlaying]);
 
   // ── 5. CANVAS RENDERING ──────────────────────
   useEffect(() => {
@@ -172,6 +154,15 @@ const Board = () => {
       } else if (item.type === "circle") {
         // Full solid color fill
         ctx.arc(item.x + item.w / 2, item.y + item.h / 2, item.w / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = darkMode ? "#818cf8" : "#4f46e5";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      } else if (item.type === "triangle") {
+        ctx.moveTo(item.x + item.w / 2, item.y);
+        ctx.lineTo(item.x + item.w, item.y + item.h);
+        ctx.lineTo(item.x, item.y + item.h);
+        ctx.closePath();
         ctx.fill();
         ctx.strokeStyle = darkMode ? "#818cf8" : "#4f46e5";
         ctx.lineWidth = 2;
@@ -301,8 +292,9 @@ const Board = () => {
       text: { w: 240, h: 120 },
       rect: { w: 160, h: 120 },
       circle: { w: 130, h: 130 },
+      triangle: { w: 140, h: 130 },
       image: { w: 300, h: 200 },
-      video: { w: 420, h: 260 },
+      video: { w: 420, h: 300 },
       sticky: { w: 200, h: 160 },
       emoji: { w: 80, h: 80 },
       line: { w: 200, h: 40 },
@@ -356,15 +348,7 @@ const Board = () => {
     setMediaModal(null); setMediaUrl("");
   };
 
-  // ── 9. TIMELINE DRAG ──────────────────────────
-  const handleTimelineDrag = (e) => {
-    if (!timelineRef.current) return;
-    const rect = timelineRef.current.getBoundingClientRect();
-    const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-    setTimelinePlayhead(ratio * TOTAL_DURATION);
-  };
 
-  const videoItems = items.filter(i => i.type === "video");
 
   if (!isLoaded) return (
     <div className="h-full w-full flex items-center justify-center bg-[#F0F4F8] dark:bg-slate-900 text-slate-400 gap-2">
@@ -427,6 +411,7 @@ const Board = () => {
             <ToolBtn icon={<Type size={16} />} onClick={() => addItem("text")} label="Text" dark={dm} />
             <ToolBtn icon={<Square size={16} />} onClick={() => addItem("rect")} label="Rectangle" dark={dm} />
             <ToolBtn icon={<Circle size={16} />} onClick={() => addItem("circle")} label="Circle" dark={dm} />
+            <ToolBtn icon={<Triangle size={16} />} onClick={() => addItem("triangle")} label="Triangle" dark={dm} />
             <ToolBtn icon={<Minus size={16} />} onClick={() => addItem("line")} label="Line" dark={dm} />
             <ToolBtn icon={<MoveRight size={16} />} onClick={() => addItem("arrow")} label="Arrow" dark={dm} />
             <ToolBtn icon={<StickyNote size={16} />} onClick={() => addItem("sticky")} label="Sticky Note" dark={dm} />
@@ -514,7 +499,7 @@ const Board = () => {
             {/* Size/thickness */}
             <div className="flex flex-col gap-0.5">
               <span className="text-[9px] font-bold text-slate-400 uppercase">Size</span>
-              {selectedId && items.find(i => i.id === selectedId)?.type === "text" ? (
+              {selectedId && ["text", "rect", "circle", "triangle", "sticky"].includes(items.find(i => i.id === selectedId)?.type) ? (
                 <select className={`text-xs font-bold py-0.5 px-1.5 rounded outline-none ${dm ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-900"}`}
                   value={items.find(i => i.id === selectedId)?.fontSize || 16}
                   onChange={e => updateItem(selectedId, { fontSize: parseInt(e.target.value) })}>
@@ -527,8 +512,8 @@ const Board = () => {
               )}
             </div>
 
-            {/* Text-specific controls */}
-            {selectedId && items.find(i => i.id === selectedId)?.type === "text" && (
+            {/* Text controls — for text, rect, circle, triangle, sticky */}
+            {selectedId && ["text", "rect", "circle", "triangle", "sticky"].includes(items.find(i => i.id === selectedId)?.type) && (
               <>
                 <div className={`w-px h-7 ${dm ? "bg-slate-600" : "bg-slate-200"}`} />
                 <div className="flex flex-col gap-0.5">
@@ -616,9 +601,42 @@ const Board = () => {
               {/* Image */}
               {item.type === "image" && <img src={item.src} alt="" className="w-full h-full object-cover rounded-lg pointer-events-none select-none shadow-md" />}
 
-              {/* Video */}
+              {/* Video with Mini Timeline */}
               {item.type === "video" && (
-                <video src={item.src} controls className="w-full h-full rounded-lg pointer-events-auto select-none shadow-md object-cover" />
+                <div className="w-full h-full flex flex-col">
+                  <video
+                    id={`video-${item.id}`}
+                    src={item.src}
+                    className="w-full flex-1 rounded-t-lg pointer-events-auto select-none shadow-md object-cover"
+                    style={{ minHeight: 0 }}
+                  />
+                  <MiniVideoTimeline
+                    item={item}
+                    isDark={dm}
+                    onUpdate={(fields) => updateItem(item.id, fields)}
+                  />
+                </div>
+              )}
+
+              {/* Shape text overlay — rect, circle, triangle */}
+              {["rect", "circle", "triangle"].includes(item.type) && (
+                <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+                  <textarea
+                    autoFocus={editingId === item.id}
+                    className={`w-4/5 h-3/4 resize-none outline-none bg-transparent text-center leading-relaxed ${editingId === item.id ? "pointer-events-auto cursor-text" : "pointer-events-none"}`}
+                    style={{
+                      fontSize: `${item.fontSize || 16}px`,
+                      fontWeight: item.fontWeight || "normal",
+                      fontStyle: item.fontStyle || "normal",
+                      color: item.fontColor || (dm ? "#f8fafc" : "#1e293b"),
+                    }}
+                    value={item.text || ""}
+                    onChange={e => updateItem(item.id, { text: e.target.value })}
+                    onBlur={() => setEditingId(null)}
+                    readOnly={editingId !== item.id}
+                    placeholder={editingId === item.id ? "Type here..." : ""}
+                  />
+                </div>
               )}
 
               {/* Emoji sticker */}
@@ -631,10 +649,12 @@ const Board = () => {
                 <div className="w-full h-full rounded-lg shadow-lg relative overflow-hidden" style={{ backgroundColor: item.color }}>
                   <div className="absolute top-0 left-0 right-0 h-6 opacity-20" style={{ background: "linear-gradient(180deg,rgba(0,0,0,0.15),transparent)" }} />
                   <textarea
-                    className="w-full h-full resize-none outline-none bg-transparent p-3 text-sm leading-relaxed"
+                    autoFocus={editingId === item.id}
+                    className={`w-full h-full resize-none outline-none bg-transparent p-3 text-sm leading-relaxed ${editingId === item.id ? "pointer-events-auto cursor-text" : "pointer-events-none"}`}
                     style={{ fontSize: `${item.fontSize || 14}px`, fontWeight: item.fontWeight || "normal", color: "#1e293b" }}
                     value={item.text}
                     onChange={e => updateItem(item.id, { text: e.target.value })}
+                    onBlur={() => setEditingId(null)}
                     readOnly={editingId !== item.id}
                   />
                 </div>
@@ -643,6 +663,7 @@ const Board = () => {
               {/* Text / Shapes textarea */}
               {item.type === "text" && (
                 <textarea
+                  autoFocus={editingId === item.id}
                   className={`w-full h-full resize-none outline-none bg-transparent p-4 text-center leading-relaxed ${dm ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"} rounded-lg shadow-sm border ${editingId !== item.id ? "pointer-events-none" : "pointer-events-auto cursor-text"}`}
                   style={{ fontSize: `${item.fontSize || 16}px`, fontWeight: item.fontWeight || "normal", fontStyle: item.fontStyle || "normal", color: item.fontColor || (dm ? "#f8fafc" : "#1e293b") }}
                   value={item.text}
@@ -666,15 +687,7 @@ const Board = () => {
         </div>
       </div>
 
-      {/* ── COMPACT ALWAYS-VISIBLE PLANNING TIMELINE ── */}
-      <PlanningTimeline
-        isDark={dm}
-        playhead={timelinePlayhead}
-        setPlayhead={setTimelinePlayhead}
-        isPlaying={isPlaying}
-        setIsPlaying={setIsPlaying}
-        totalDuration={TOTAL_DURATION}
-      />
+
 
       {/* ── MEDIA IMPORT MODAL ── */}
       <AnimatePresence>
@@ -756,136 +769,186 @@ const ResizeHandle = ({ pos, onMouseDown }) => {
   return <div onMouseDown={onMouseDown} className={`absolute w-3 h-3 bg-white border-2 border-indigo-500 rounded-full shadow z-50 cursor-move ${style}`} />;
 };
 
-// ─── Compact Planning Timeline ─────────────────────────────────────────────
-const PlanningTimeline = ({ isDark, playhead, setPlayhead, isPlaying, setIsPlaying, totalDuration }) => {
+// ─── Mini Video Timeline (per-card) ─────────────────────────────────────────
+const MiniVideoTimeline = ({ item, isDark, onUpdate }) => {
   const railRef = useRef(null);
-  const animRef = useRef(null);
-  const lastTimeRef = useRef(null);
+  const videoRef = useRef(null);
   const dm = isDark;
 
-  // Advance playhead when playing
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [playing, setPlaying] = useState(false);
+
+  // Trim in/out stored on the item
+  const trimIn = item.trimIn || 0;
+  const trimOut = item.trimOut || duration || 0;
+
+  // Connect to the video element
   useEffect(() => {
-    if (isPlaying) {
-      const tick = (ts) => {
-        if (lastTimeRef.current !== null) {
-          const delta = (ts - lastTimeRef.current) / 1000;
-          setPlayhead(prev => {
-            const next = prev + delta;
-            if (next >= totalDuration) { setIsPlaying(false); return 0; }
-            return next;
-          });
-        }
-        lastTimeRef.current = ts;
-        animRef.current = requestAnimationFrame(tick);
-      };
-      animRef.current = requestAnimationFrame(tick);
-    } else {
-      lastTimeRef.current = null;
-      cancelAnimationFrame(animRef.current);
+    const el = document.getElementById(`video-${item.id}`);
+    if (!el) return;
+    videoRef.current = el;
+    const onMeta = () => {
+      setDuration(el.duration || 0);
+      if (!item.trimOut) onUpdate({ trimOut: el.duration || 0 });
+    };
+    const onTime = () => setCurrentTime(el.currentTime || 0);
+    const onEnded = () => setPlaying(false);
+    el.addEventListener("loadedmetadata", onMeta);
+    el.addEventListener("timeupdate", onTime);
+    el.addEventListener("ended", onEnded);
+    if (el.duration) onMeta();
+    return () => {
+      el.removeEventListener("loadedmetadata", onMeta);
+      el.removeEventListener("timeupdate", onTime);
+      el.removeEventListener("ended", onEnded);
+    };
+  }, [item.id]);
+
+  // Play / Pause
+  const togglePlay = (e) => {
+    e.stopPropagation();
+    const v = videoRef.current;
+    if (!v) return;
+    if (playing) { v.pause(); setPlaying(false); }
+    else {
+      if (v.currentTime < trimIn || v.currentTime >= trimOut) v.currentTime = trimIn;
+      v.play(); setPlaying(true);
     }
-    return () => cancelAnimationFrame(animRef.current);
-  }, [isPlaying, totalDuration, setPlayhead, setIsPlaying]);
+  };
 
-  // Click on rail → seek
-  const handleRailClick = (e) => {
-    if (!railRef.current) return;
+  // Stop at trim-out
+  useEffect(() => {
+    if (!playing || !videoRef.current) return;
+    const iv = setInterval(() => {
+      const v = videoRef.current;
+      if (v && v.currentTime >= trimOut) { v.pause(); v.currentTime = trimIn; setPlaying(false); }
+    }, 100);
+    return () => clearInterval(iv);
+  }, [playing, trimIn, trimOut]);
+
+  // Click rail → seek
+  const seekTo = (e) => {
+    e.stopPropagation();
+    if (!railRef.current || !videoRef.current || !duration) return;
     const r = railRef.current.getBoundingClientRect();
-    const t = Math.max(0, Math.min(totalDuration, ((e.clientX - r.left) / r.width) * totalDuration));
-    setPlayhead(t);
+    const t = Math.max(0, Math.min(duration, ((e.clientX - r.left) / r.width) * duration));
+    videoRef.current.currentTime = t;
+    setCurrentTime(t);
   };
 
-  // Tick marks — finer every second, labeled every 5s
-  const ticks = [];
-  const step = 0.5; // mark every 0.5s
-  for (let t = 0; t <= totalDuration; t = parseFloat((t + step).toFixed(2))) {
-    const pct = (t / totalDuration) * 100;
-    const isMajor = t % 5 === 0;
-    const isMid = t % 1 === 0;
-    ticks.push({ t, pct, isMajor, isMid });
-  }
+  // Drag trim handle
+  const handleTrimDrag = (type, e) => {
+    e.stopPropagation(); e.preventDefault();
+    const move = (ev) => {
+      if (!railRef.current || !duration) return;
+      const r = railRef.current.getBoundingClientRect();
+      const t = Math.max(0, Math.min(duration, ((ev.clientX - r.left) / r.width) * duration));
+      if (type === "in") onUpdate({ trimIn: Math.min(t, (item.trimOut || duration) - 0.5) });
+      else onUpdate({ trimOut: Math.max(t, (item.trimIn || 0) + 0.5) });
+    };
+    const up = () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
+    window.addEventListener("mousemove", move); window.addEventListener("mouseup", up);
+  };
 
-  const formatTime = (s) => {
+  const fmt = (s) => {
+    if (!s || isNaN(s)) return "0:00";
     const m = Math.floor(s / 60);
-    const sec = (s % 60).toFixed(2);
-    return m > 0 ? `${m}:${sec.padStart(5, "0")}` : `${sec}s`;
+    const sec = Math.floor(s % 60);
+    return `${m}:${String(sec).padStart(2, "0")}`;
   };
+
+  const pct = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const trimInPct = duration > 0 ? (trimIn / duration) * 100 : 0;
+  const trimOutPct = duration > 0 ? (trimOut / duration) * 100 : 100;
 
   return (
-    <div className={`absolute bottom-0 left-0 right-0 z-40 flex flex-col border-t select-none ${dm ? "bg-slate-950 border-slate-800" : "bg-slate-900 border-slate-700"}`} style={{ height: 44 }}>
-      {/* Controls row */}
-      <div className="flex items-center gap-2 px-3 pb-0 pt-1 flex-shrink-0">
-        <button
-          onClick={() => setIsPlaying(!isPlaying)}
-          className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-0.5 rounded-md text-[10px] font-bold transition-colors flex-shrink-0"
-        >
-          {isPlaying ? <Pause size={9} /> : <Play size={9} />}
-          {isPlaying ? "Pause" : "Play"}
-        </button>
-
-        {/* Rail */}
+    <div
+      className={`rounded-b-lg border-t pointer-events-auto select-none ${dm ? "bg-slate-900/95 border-slate-700" : "bg-slate-950/95 border-slate-700"
+        }`}
+      style={{ backdropFilter: "blur(8px)" }}
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      {/* ── Scrub bar with trim handles ── */}
+      <div className="px-2 pt-1.5 pb-1">
         <div
           ref={railRef}
-          onClick={handleRailClick}
-          className="relative flex-1 h-3 rounded-full cursor-pointer overflow-visible"
+          onClick={seekTo}
+          className="relative w-full h-2.5 rounded-full cursor-pointer group"
           style={{ background: dm ? "#1e293b" : "#334155" }}
         >
-          {/* Tick marks */}
-          {ticks.map(({ t, pct, isMajor, isMid }) => (
-            <div key={t}
-              className="absolute top-0 pointer-events-none"
-              style={{
-                left: `${pct}%`,
-                height: isMajor ? "100%" : isMid ? "60%" : "30%",
-                width: 1,
-                background: isMajor ? "#6366f1" : "#475569",
-                opacity: isMajor ? 1 : 0.6,
-              }}
-            />
-          ))}
-
-          {/* Progress fill */}
-          <div className="absolute top-0 left-0 bottom-0 rounded-full bg-indigo-600/30"
-            style={{ width: `${(playhead / totalDuration) * 100}%` }} />
-
-          {/* Playhead thumb */}
-          <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-rose-400 border-2 border-white shadow-md z-10 cursor-grab"
-            style={{ left: `${(playhead / totalDuration) * 100}%` }}
-            onMouseDown={(downE) => {
-              downE.stopPropagation();
-              const move = (e) => {
-                if (!railRef.current) return;
-                const r = railRef.current.getBoundingClientRect();
-                const t = Math.max(0, Math.min(totalDuration, ((e.clientX - r.left) / r.width) * totalDuration));
-                setPlayhead(t);
-              };
-              const up = () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
-              window.addEventListener("mousemove", move);
-              window.addEventListener("mouseup", up);
+          {/* Trim region highlight */}
+          <div
+            className="absolute top-0 bottom-0 rounded-full"
+            style={{
+              left: `${trimInPct}%`,
+              width: `${trimOutPct - trimInPct}%`,
+              background: "rgba(99,102,241,0.3)",
             }}
           />
-        </div>
 
-        {/* Time display */}
-        <span className="font-mono text-[10px] text-slate-400 flex-shrink-0 w-16 text-right">
-          {formatTime(playhead)} / {totalDuration}s
-        </span>
+          {/* Progress fill */}
+          <div
+            className="absolute top-0 left-0 bottom-0 rounded-full bg-indigo-500"
+            style={{ width: `${Math.min(pct, trimOutPct)}%` }}
+          />
+
+          {/* Trim In handle */}
+          <div
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-4 rounded-sm bg-emerald-400 cursor-col-resize z-20 shadow-sm hover:bg-emerald-300 transition-colors"
+            style={{ left: `${trimInPct}%` }}
+            title={`Start: ${fmt(trimIn)}`}
+            onMouseDown={(e) => handleTrimDrag("in", e)}
+          />
+
+          {/* Trim Out handle */}
+          <div
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-4 rounded-sm bg-rose-400 cursor-col-resize z-20 shadow-sm hover:bg-rose-300 transition-colors"
+            style={{ left: `${trimOutPct}%` }}
+            title={`End: ${fmt(trimOut)}`}
+            onMouseDown={(e) => handleTrimDrag("out", e)}
+          />
+
+          {/* Playhead */}
+          <div
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-1.5 h-3.5 rounded-full bg-white shadow z-10"
+            style={{ left: `${pct}%` }}
+          />
+        </div>
       </div>
 
-      {/* Ruler label row */}
-      <div className="relative flex-1 px-3">
-        <div className="relative w-full h-full">
-          {ticks.filter(t => t.isMajor).map(({ t, pct }) => (
-            <span key={t}
-              className="absolute text-[8px] text-slate-500 -translate-x-1/2 top-0"
-              style={{ left: `${pct}%` }}
-            >
-              {t}s
-            </span>
-          ))}
+      {/* ── Time labels + Play button ── */}
+      <div className="flex items-center gap-1.5 px-2 pb-1.5">
+        {/* Play / Pause */}
+        <button
+          onClick={togglePlay}
+          className="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white transition-colors shadow-sm flex-shrink-0"
+        >
+          {playing ? <Pause size={9} /> : <Play size={9} style={{ marginLeft: 1 }} />}
+        </button>
+
+        {/* Start time */}
+        <div className="flex items-center gap-0.5">
+          <span className="text-[8px] font-bold text-emerald-400 uppercase">Start</span>
+          <span className="font-mono text-[9px] text-emerald-300 tabular-nums">{fmt(trimIn)}</span>
+        </div>
+
+        {/* Current time */}
+        <div className="flex-1 text-center">
+          <span className="font-mono text-[10px] text-white/70 tabular-nums">{fmt(currentTime)}</span>
+        </div>
+
+        {/* End time */}
+        <div className="flex items-center gap-0.5">
+          <span className="text-[8px] font-bold text-rose-400 uppercase">End</span>
+          <span className="font-mono text-[9px] text-rose-300 tabular-nums">{fmt(trimOut)}</span>
         </div>
       </div>
     </div>
   );
 };
+
+
 
 export default Board;
