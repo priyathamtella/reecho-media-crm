@@ -44,20 +44,24 @@ const Login = () => {
   };
 
   // Dynamic colors for the dot grid
-  const bgColor = isDarkMode ? '#0a0a0a' : '#ffffff';
+  const bgColor = isDarkMode ? '#020617' : '#f8fafc';
   const dotColor = isDarkMode ? '#ffffff' : '#000000';
 
   return (
     <div className={`${isDarkMode ? 'dark' : ''}`}>
-      {/* Main Container with dynamic dot background */}
-      <div
-        className="relative min-h-screen flex items-center justify-center transition-colors duration-500 overflow-hidden p-4"
-        style={{
-          backgroundColor: bgColor,
-          backgroundImage: `radial-gradient(${dotColor} 1.5px, transparent 1.5px)`,
-          backgroundSize: '28px 28px'
-        }}
-      >
+      {/* ── PREMIUM BACKGROUND GLOW ORBS ── */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 bg-[#f8fafc] dark:bg-[#020617] transition-colors duration-500">
+        <div className="absolute inset-0 pointer-events-none z-0 mix-blend-overlay opacity-30" style={{
+          backgroundImage: `radial-gradient(${dotColor} 1px, transparent 1px)`,
+          backgroundSize: "24px 24px"
+        }} />
+        <div className={`absolute -top-40 -left-40 w-96 h-96 rounded-full mix-blend-screen filter blur-[100px] opacity-60 ${isDarkMode ? "bg-indigo-900/50" : "bg-indigo-300/60"}`}></div>
+        <div className={`absolute top-40 -right-40 w-96 h-96 rounded-full mix-blend-screen filter blur-[100px] opacity-50 ${isDarkMode ? "bg-emerald-900/40" : "bg-emerald-300/50"}`}></div>
+        <div className={`absolute bottom-[-10%] left-1/3 w-96 h-96 rounded-full mix-blend-screen filter blur-[100px] opacity-60 ${isDarkMode ? "bg-cyan-900/40" : "bg-cyan-300/50"}`}></div>
+      </div>
+
+      {/* Main Container */}
+      <div className="relative min-h-screen flex items-center justify-center overflow-hidden p-4 z-10">
 
         {/* --- DARK MODE TOGGLE --- */}
         <motion.button
@@ -66,15 +70,15 @@ const Login = () => {
           whileHover={{ scale: 1.1, rotate: 15 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => setIsDarkMode(!isDarkMode)}
-          className="absolute top-6 right-6 z-50 p-3 rounded-full border-2 border-black dark:border-white text-black dark:text-white bg-white dark:bg-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] transition-all duration-300"
+          className="absolute top-6 right-6 z-50 p-3 rounded-full text-slate-700 dark:text-slate-300 bg-white/70 dark:bg-slate-900/70 shadow-lg backdrop-blur-md border border-slate-200/50 dark:border-slate-700/50 transition-all duration-300"
         >
           <AnimatePresence mode="wait">
             {isDarkMode ? (
-              <motion.svg key="sun" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+              <motion.svg key="sun" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-amber-400">
                 <circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
               </motion.svg>
             ) : (
-              <motion.svg key="moon" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+              <motion.svg key="moon" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-indigo-500">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
               </motion.svg>
             )}
@@ -155,64 +159,55 @@ const Login = () => {
         <motion.div
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, type: "spring", bounce: 0.4 }}
-          className="relative z-10 w-full max-w-md bg-white dark:bg-[#0a0a0a] p-8 md:p-10 border-2 border-black dark:border-white rounded-xl shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] transition-colors duration-500"
+          transition={{ duration: 0.8, type: "spring", bounce: 0.4 }}
+          className="relative z-10 w-full max-w-md bg-white/70 dark:bg-slate-900/60 p-8 md:p-10 border border-slate-200/50 dark:border-white/10 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-2xl transition-colors duration-500"
         >
-          {/* Post-it tape */}
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-6 bg-yellow-300 dark:bg-yellow-500 border border-black dark:border-white rotate-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]"></div>
-
           <form onSubmit={handleLogin} className="flex flex-col">
             <div className="text-center mb-10 relative">
-              <h2 className="text-3xl font-black text-black dark:text-white mb-2 uppercase tracking-wide transition-colors duration-300">
+              <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500 dark:from-indigo-400 dark:to-purple-400 mb-2 uppercase tracking-wide">
                 Reecho Media
               </h2>
-
-              {/* Sketched Squiggly Underline */}
-              <motion.svg className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-48 h-4 text-indigo-500" viewBox="0 0 100 10" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-                <motion.path custom={2} variants={draw} initial="hidden" animate="visible" d="M 5 5 Q 15 0 25 5 T 45 5 T 65 5 T 85 5 T 95 5" />
-              </motion.svg>
-
-              <p className="text-gray-600 dark:text-gray-400 font-medium font-mono text-sm mt-4 transition-colors duration-300">
-                // Access your planning boards
+              <p className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-3">
+                Welcome back to your workspace.
               </p>
             </div>
 
             <div className="space-y-5">
               <div className="relative">
-                <label className="block text-xs font-bold text-black dark:text-white uppercase tracking-wider mb-1 transition-colors duration-300">Email</label>
+                <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Email</label>
                 <input
                   type="email"
                   placeholder="name@project.com"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full p-3 bg-gray-50 dark:bg-[#121212] border-2 border-black dark:border-white text-black dark:text-white rounded-lg outline-none focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:focus:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] transition-all duration-200 font-mono text-sm placeholder-gray-400 dark:placeholder-gray-500"
+                  className="w-full p-3.5 bg-white/50 dark:bg-black/20 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-white rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/50 dark:focus:ring-indigo-400/50 transition-all duration-200 text-sm placeholder-slate-400 dark:placeholder-slate-600 backdrop-blur-sm"
                 />
               </div>
 
               <div className="relative">
-                <label className="block text-xs font-bold text-black dark:text-white uppercase tracking-wider mb-1 transition-colors duration-300">Password</label>
+                <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Password</label>
                 <input
                   type="password"
                   placeholder="••••••••"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full p-3 bg-gray-50 dark:bg-[#121212] border-2 border-black dark:border-white text-black dark:text-white rounded-lg outline-none focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:focus:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] transition-all duration-200 font-mono text-sm placeholder-gray-400 dark:placeholder-gray-500"
+                  className="w-full p-3.5 bg-white/50 dark:bg-black/20 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-white rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/50 dark:focus:ring-indigo-400/50 transition-all duration-200 text-sm placeholder-slate-400 dark:placeholder-slate-600 backdrop-blur-sm"
                 />
               </div>
             </div>
 
             <motion.button
-              whileHover={{ scale: 1.01, translate: "-2px -2px", boxShadow: isDarkMode ? "6px 6px 0px 0px rgba(255,255,255,1)" : "6px 6px 0px 0px rgba(0,0,0,1)" }}
-              whileTap={{ scale: 0.98, translate: "2px 2px", boxShadow: "0px 0px 0px 0px rgba(0,0,0,1)" }}
-              className="w-full mt-8 p-3 bg-indigo-500 border-2 border-black dark:border-white text-white dark:text-black dark:bg-indigo-400 rounded-lg font-black uppercase tracking-wider transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]"
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full mt-8 p-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-bold text-sm tracking-wide shadow-lg shadow-indigo-500/30 transition-all"
             >
-              Access Board
+              Sign In to Workspace
             </motion.button>
 
-            <p className="mt-6 text-center text-gray-600 dark:text-gray-400 text-sm font-medium transition-colors duration-300">
-              New to the team? <Link to="/register" className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline decoration-2 underline-offset-4">Draft an account</Link>
+            <p className="mt-8 text-center text-slate-500 dark:text-slate-400 text-sm font-medium">
+              New to the team? <Link to="/register" className="text-indigo-600 dark:text-indigo-400 font-bold hover:text-indigo-500 transition-colors">Create an account</Link>
             </p>
           </form>
         </motion.div>

@@ -4,8 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import {
     LayoutGrid, Plus, LogOut, Sun, Moon, ChevronRight,
-    Loader2, FolderOpen, X, Trash2, FileText,
-    CheckSquare, Calendar, Users, Briefcase, CreditCard, ExternalLink
+    Loader2, FolderOpen, X, Trash2, FileText
 } from "lucide-react";
 
 const API = "http://localhost:5050/api";
@@ -22,11 +21,9 @@ const AppLayout = ({ children }) => {
     const [newTitle, setNewTitle] = useState("");
     const [creating, setCreating] = useState(false);
     const [creatingDoc, setCreatingDoc] = useState(false);
-    
+
     const userName = localStorage.getItem("userName") || "User";
     const userEmail = localStorage.getItem("userEmail") || "";
-    const [currentPage, setCurrentPage] = useState("overview");
-
 
     // Apply dark mode
     useEffect(() => {
@@ -127,48 +124,100 @@ const AppLayout = ({ children }) => {
                     <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-md"><LayoutGrid size={18} /></div>
                     <div>
                         <span className={`font-black text-sm tracking-tight ${isDark ? "text-white" : "text-slate-800"}`}>Reecho Media</span>
-                        <p className={`text-[10px] ${isDark ? "text-slate-500" : "text-slate-400"}`}>Workspace CRM</p>
+                        <p className={`text-[10px] ${isDark ? "text-slate-500" : "text-slate-400"}`}>Workspace</p>
                     </div>
                 </div>
 
                 {/* Scrollable body */}
                 <div className="flex-1 overflow-y-auto py-3 px-3 space-y-4">
 
-                    {/* ── BOARD & DOCUMENT BUTTON ── */}
+                    {/* ── HOME NAV BUTTON ── */}
                     <button
-                        onClick={() => { setCurrentPage("boards"); navigate("/"); }}
-                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all mb-1 ${currentPage === "boards" && location.pathname === "/"
+                        onClick={() => navigate("/")}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all mb-1 ${location.pathname === "/"
                             ? "bg-indigo-600 text-white shadow-md"
                             : isDark ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100"}`}
                     >
-                        <LayoutGrid size={14} className={currentPage === "boards" && location.pathname === "/" ? "text-white" : "text-indigo-500"} />
-                        Board &amp; Document
+                        <LayoutGrid size={14} className={location.pathname === "/" ? "text-white" : "text-indigo-500"} />
+                        Home &amp; Dashboard
                     </button>
 
-                    {/* ── AGENCY WORKSPACE ── */}
+                    {/* ── BOARDS ── */}
                     <div>
-                        <div className={`text-[10px] font-black uppercase tracking-widest px-2 mt-4 mb-2 ${isDark ? "text-slate-500" : "text-slate-400"}`}>Agency Workspace</div>
-                        {[
-                            { page:"overview",  label:"Overview",         Icon:LayoutGrid   },
-                            { page:"tasks",     label:"Task Board",       Icon:CheckSquare  },
-                            { page:"calendar",  label:"Content Calendar", Icon:Calendar     },
-                            { page:"team",      label:"Team Members",     Icon:Users        },
-                            { page:"clients",   label:"Clients",          Icon:Briefcase    },
-                            { page:"payments",  label:"Payments",         Icon:CreditCard   },
-                            { page:"portal",    label:"Client Hub",       Icon:ExternalLink },
-                        ].map(({ page, label, Icon }) => (
-                            <button key={page}
-                                onClick={() => { setCurrentPage(page); navigate("/"); }}
-                                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all mb-1 ${currentPage === page && location.pathname === "/"
-                                    ? "bg-indigo-600 text-white shadow-md"
-                                    : isDark ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100"}`}
-                            >
-                                <Icon size={14} className={currentPage === page && location.pathname === "/" ? "text-white" : "text-indigo-500"} />
-                                {label}
+                        <div className="flex items-center justify-between px-2 mb-1.5">
+                            <span className={`text-[10px] font-black uppercase tracking-widest ${isDark ? "text-slate-500" : "text-slate-400"}`}>Boards</span>
+                            <button onClick={() => setShowModal(true)} className={`p-1 rounded-lg transition-colors ${isDark ? "text-slate-500 hover:bg-slate-800 hover:text-indigo-400" : "text-slate-400 hover:bg-slate-100 hover:text-indigo-600"}`} title="New board">
+                                <Plus size={13} />
                             </button>
-                        ))}
+                        </div>
+
+                        {loading ? (
+                            <div className="flex items-center justify-center py-4 gap-2 opacity-40">
+                                <Loader2 size={14} className="animate-spin" />
+                            </div>
+                        ) : boards.length === 0 ? (
+                            <div className="text-center py-4 opacity-40">
+                                <FolderOpen size={24} className="mx-auto mb-1" />
+                                <p className="text-[10px]">No boards yet</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-0.5">
+                                {boards.map(board => {
+                                    const isActive = String(activeBoardId) === String(board.ID);
+                                    return (
+                                        <div key={board.ID} className="relative group/board">
+                                            <button onClick={() => navigate(`/boards/${board.ID}`)}
+                                                className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left text-xs font-medium pr-8 transition-all ${isActive ? "bg-indigo-600 text-white shadow-md" : isDark ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100"}`}>
+                                                <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isActive ? "bg-white" : "bg-indigo-400"}`} />
+                                                <span className="truncate">{board.Title}</span>
+                                            </button>
+                                            <button onClick={e => handleDeleteBoard(e, board.ID)}
+                                                className={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-lg opacity-0 group-hover/board:opacity-100 transition-all ${isActive ? "text-white/70 hover:text-white hover:bg-white/20" : isDark ? "text-slate-500 hover:text-rose-400 hover:bg-slate-700" : "text-slate-400 hover:text-rose-500 hover:bg-rose-50"}`}>
+                                                <Trash2 size={11} />
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
 
+                    {/* ── DOCUMENTS / PDFs ── */}
+                    <div>
+                        <div className="flex items-center justify-between px-2 mb-1.5">
+                            <span className={`text-[10px] font-black uppercase tracking-widest ${isDark ? "text-slate-500" : "text-slate-400"}`}>Documents</span>
+                            <button onClick={handleCreateDoc} disabled={creatingDoc}
+                                className={`p-1 rounded-lg transition-colors ${isDark ? "text-slate-500 hover:bg-slate-800 hover:text-indigo-400" : "text-slate-400 hover:bg-slate-100 hover:text-indigo-600"}`} title="New document">
+                                {creatingDoc ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                            </button>
+                        </div>
+
+                        {docs.length === 0 ? (
+                            <button onClick={handleCreateDoc}
+                                className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 border-dashed text-xs text-center justify-center transition-colors ${isDark ? "border-slate-700 text-slate-500 hover:border-indigo-600 hover:text-indigo-400" : "border-slate-300 text-slate-400 hover:border-indigo-400 hover:text-indigo-600"}`}>
+                                <FileText size={12} /> New Document
+                            </button>
+                        ) : (
+                            <div className="space-y-0.5">
+                                {docs.map(doc => {
+                                    const isActive = String(activeDocId) === String(doc.ID);
+                                    return (
+                                        <div key={doc.ID} className="relative group/doc">
+                                            <button onClick={() => navigate(`/docs/${doc.ID}`)}
+                                                className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left text-xs font-medium pr-8 transition-all ${isActive ? "bg-emerald-600 text-white shadow-md" : isDark ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100"}`}>
+                                                <FileText size={11} className={isActive ? "text-white" : "text-emerald-500"} />
+                                                <span className="truncate">{doc.Title}</span>
+                                            </button>
+                                            <button onClick={e => handleDeleteDoc(e, doc.ID)}
+                                                className={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-lg opacity-0 group-hover/doc:opacity-100 transition-all ${isActive ? "text-white/70 hover:text-white hover:bg-white/20" : isDark ? "text-slate-500 hover:text-rose-400 hover:bg-slate-700" : "text-slate-400 hover:text-rose-500 hover:bg-rose-50"}`}>
+                                                <Trash2 size={11} />
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* ── FOOTER ── */}
@@ -205,7 +254,7 @@ const AppLayout = ({ children }) => {
 
             {/* ── CONTENT ── */}
             <main className="flex-1 h-full overflow-hidden relative">
-                {React.cloneElement(children, { isDark, setIsDark, boards, fetchBoards, docs, fetchDocs, handleCreateDoc, setShowModal, currentPage, setCurrentPage })}
+                {React.cloneElement(children, { isDark, setIsDark, boards, fetchBoards, setShowModal })}
             </main>
 
             {/* ── CREATE BOARD MODAL ── */}
