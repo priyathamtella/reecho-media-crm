@@ -11,6 +11,7 @@ func SetupRoutes(app *fiber.App) {
 	// Public routes
 	app.Post("/register", controllers.Register)
 	app.Post("/login", controllers.Login)
+	app.Post("/contact", controllers.ContactUs)
 
 	// Protected routes (Requires JWT)
 	api := app.Group("/api", auth.AuthRequired)

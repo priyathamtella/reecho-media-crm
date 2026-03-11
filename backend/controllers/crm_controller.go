@@ -230,3 +230,24 @@ func DeleteCalendarEvent(c *fiber.Ctx) error {
 	database.DB.Where("id = ? AND user_id = ?", id, userID).Delete(&models.CalendarEvent{})
 	return c.JSON(fiber.Map{"message": "Event deleted"})
 }
+
+// --- CONTACT FORM ---
+type ContactRequest struct {
+	Name    string `json:"name"`
+	Email   string `json:"email"`
+	Details string `json:"details"`
+}
+
+func ContactUs(c *fiber.Ctx) error {
+	var req ContactRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
+	}
+
+	subject := fmt.Sprintf("New Project Inquiry from %s", req.Name)
+	body := fmt.Sprintf("You have received a new contact submission layout:\n\nName: %s\nEmail: %s\nProject Details:\n%s\n", req.Name, req.Email, req.Details)
+
+	sendEmail("priyathamtella@gmail.com", subject, body)
+	
+	return c.JSON(fiber.Map{"message": "Inquiry sent successfully"})
+}
