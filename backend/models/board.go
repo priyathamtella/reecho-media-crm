@@ -9,15 +9,18 @@ import (
 )
 
 type Board struct {
-	ID        uuid.UUID       `gorm:"type:uuid;primaryKey"`
-	Title     string          `gorm:"not null"`
-	OwnerID   uuid.UUID       `gorm:"type:uuid;not null"`
-	FullState json.RawMessage `gorm:"type:jsonb;default:'{}'" json:"fullState"`
-	Zoom      float64         `gorm:"default:1.0"`
-	PanX      float64         `gorm:"default:0"`
-	PanY      float64         `gorm:"default:0"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID             uuid.UUID       `gorm:"type:uuid;primaryKey" json:"ID"`
+	Title          string          `gorm:"not null" json:"Title"`
+	OwnerID        uuid.UUID       `gorm:"type:uuid;not null" json:"OwnerID"`
+	FullState      json.RawMessage `gorm:"type:jsonb;default:'{}'" json:"fullState"`
+	Zoom           float64         `gorm:"default:1.0" json:"Zoom"`
+	PanX           float64         `gorm:"default:0" json:"PanX"`
+	PanY           float64         `gorm:"default:0" json:"PanY"`
+	ClientName     string          `gorm:"default:''" json:"ClientName"`
+	ClientStatus   string          `gorm:"default:'Pending'" json:"ClientStatus"`
+	ClientFeedback string          `gorm:"type:text;default:''" json:"ClientFeedback"`
+	CreatedAt      time.Time       `json:"CreatedAt"`
+	UpdatedAt      time.Time       `json:"UpdatedAt"`
 }
 
 // THIS IS CRITICAL: Generates the UUID before the DB insert

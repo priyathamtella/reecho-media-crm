@@ -12,6 +12,7 @@ type User struct {
 	Name      string    `gorm:"not null"`
 	Email     string    `gorm:"uniqueIndex;not null"`
 	Password  string    `gorm:"not null"` // Hashed via bcrypt [cite: 83, 101]
+	Role      string    `gorm:"default:'admin'"` // 'admin', 'client', 'member'
 	Boards    []Board   `gorm:"foreignKey:OwnerID"`
 	CreatedAt time.Time
 }

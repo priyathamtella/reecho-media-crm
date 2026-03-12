@@ -272,10 +272,10 @@ const LandingPage = () => {
 
              <div className="w-full h-[1px] bg-[#202020]/20 mb-8 max-w-sm"></div>
              
-             <a href="mailto:priyathamtella@gmail.com" className="flex items-center gap-4 text-xl font-medium text-[#202020] hover:text-[#C4B5FD] transition-colors group mb-12 w-fit">
+             <Link to="/contact" className="flex items-center gap-4 text-xl font-medium text-[#202020] hover:text-[#C4B5FD] transition-colors group mb-12 w-fit">
                Get in touch 
                <ArrowRight size={24} className="group-hover:translate-x-2 transition-transform" />
-             </a>
+             </Link>
 
              <p className="text-base md:text-lg font-medium text-[#202020]/70 max-w-md leading-relaxed">
                We'd love to hear from you! Whether you have questions, feedback, or a project idea, feel free to reach out. Our team is committed to responding within 24 hours to assist you promptly.

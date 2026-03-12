@@ -1,5 +1,6 @@
 import React from 'react';
 import Navbar from './Navbar';
+import { Link } from 'react-router-dom';
 import Footer from './Footer';
 import { motion } from 'framer-motion';
 import { Play, ArrowRight } from 'lucide-react';
@@ -77,10 +78,10 @@ const WorkPage = () => {
 
              <div className="w-full h-[1px] bg-[#000000]/20 mb-8 max-w-sm"></div>
              
-             <a href="mailto:priyathamtella@gmail.com" className="flex items-center gap-4 text-xl font-medium text-[#000000] hover:text-[#C4B5FD] transition-colors group mb-12 w-fit">
+             <Link to="/contact" className="flex items-center gap-4 text-xl font-medium text-[#000000] hover:text-[#C4B5FD] transition-colors group mb-12 w-fit">
                Start your project 
                <ArrowRight size={24} className="group-hover:translate-x-2 transition-transform" />
-             </a>
+             </Link>
 
              <p className="text-base md:text-lg font-medium text-[#000000]/70 max-w-md leading-relaxed">
                We treat every project as a portfolio piece. Ready to collaborate with a team that cares about the final product as much as you do? Reach out and let's get building.

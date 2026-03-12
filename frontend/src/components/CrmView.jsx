@@ -92,10 +92,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
       ]);
       setClients(rc.data || []);
       setTasks(rt.data || []);
-      // Deduplicate team members by name (in case DB has duplicate records)
-      const rawTeam = rtm.data || [];
-      const seenNames = new Set();
-      setTeam(rawTeam.filter(m => { if (seenNames.has(m.name)) return false; seenNames.add(m.name); return true; }));
+      setTeam(rtm.data || []);
       setCalEvents(rce.data || []);
       setInvoices(ri.data || []);
     } catch (e) { console.error(e); }
@@ -103,6 +100,13 @@ export default function CrmView({ currentPage, setCurrentPage }) {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchAll(); }, []);
+
+  const userRole = localStorage.getItem("userRole") || "admin";
+  useEffect(() => {
+    if (userRole === "client" && currentPage === "portal" && clients.length > 0 && !selectedClient) {
+      setSelectedClient(clients[0]);
+    }
+  }, [clients, userRole, currentPage, selectedClient]);
 
   // Close notification panel when clicking outside
   useEffect(() => {
@@ -299,11 +303,11 @@ export default function CrmView({ currentPage, setCurrentPage }) {
           )}
         </div>
         <div className="topbar-right">
-          {currentPage==="clients"  && <button className="btn btn-ghost" onClick={()=>setShowClient(true)}>+ New Client</button>}
-          {currentPage==="team"     && <button className="btn btn-ghost" onClick={()=>setShowTeam(true)}>+ Invite Member</button>}
-          {currentPage==="calendar" && <button className="btn btn-ghost" onClick={()=>setShowCal(true)}>+ Schedule Post</button>}
-          {currentPage==="payments" && <button className="btn btn-ghost" onClick={()=>setShowInv(true)}>+ Create Invoice</button>}
-          <button className="btn btn-primary" onClick={()=>setShowTask(true)}>+ New Task</button>
+          {userRole === "admin" && currentPage === "clients"  && <button className="btn btn-ghost" onClick={()=>setShowClient(true)}>+ New Client</button>}
+          {userRole === "admin" && currentPage === "team"     && <button className="btn btn-ghost" onClick={()=>setShowTeam(true)}>+ Invite Member</button>}
+          {userRole === "admin" && currentPage === "calendar" && <button className="btn btn-ghost" onClick={()=>setShowCal(true)}>+ Schedule Post</button>}
+          {userRole === "admin" && currentPage === "payments" && <button className="btn btn-ghost" onClick={()=>setShowInv(true)}>+ Create Invoice</button>}
+          {userRole === "admin" && <button className="btn btn-primary" onClick={()=>setShowTask(true)}>+ New Task</button>}
         </div>
       </div>
 
@@ -314,7 +318,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
           <div className="page-view active">
             <div className="stats-grid">
               <div className="stat-card s1">
-                <div className="stat-icon">👥</div><div className="stat-label">Active Clients</div>
+                <div className="stat-icon">👥</div><div className="stat-label">{userRole==="client"?"Your Profile":"Active Clients"}</div>
                 <div className="stat-value">{clients.length}</div>
                 <div className="stat-change up">{clients.filter(c=>c.status==="Active").length} active</div>
               </div>
@@ -323,13 +327,21 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                 <div className="stat-value">{tasks.filter(t=>t.status!=="Done").length}</div>
                 <div className="stat-change up">{tasks.filter(t=>t.status==="Done").length} completed</div>
               </div>
-              <div className="stat-card s3">
-                <div className="stat-icon">💰</div><div className="stat-label">Revenue Collected</div>
-                <div className="stat-value">₹{paid.toLocaleString("en-IN")}</div>
-                <div className="stat-change up">{invoices.filter(i=>i.status==="Paid").length} invoices paid</div>
-              </div>
+              {userRole === "admin" ? (
+                <div className="stat-card s3">
+                  <div className="stat-icon">💰</div><div className="stat-label">Revenue Collected</div>
+                  <div className="stat-value">₹{paid.toLocaleString("en-IN")}</div>
+                  <div className="stat-change up">{invoices.filter(i=>i.status==="Paid").length} invoices paid</div>
+                </div>
+              ) : (
+                <div className="stat-card s3">
+                  <div className="stat-icon">🏆</div><div className="stat-label">Completion Rate</div>
+                  <div className="stat-value">{tasks.length > 0 ? Math.round((tasks.filter(t=>t.status==="Done").length / tasks.length) * 100) : 0}%</div>
+                  <div className="stat-change up">{tasks.filter(t=>t.status==="Done").length} tasks finished</div>
+                </div>
+              )}
               <div className="stat-card s4">
-                <div className="stat-icon">📅</div><div className="stat-label">Scheduled Posts</div>
+                <div className="stat-icon">📅</div><div className="stat-label">{userRole==="client"?"Scheduled Dates":"Scheduled Posts"}</div>
                 <div className="stat-value">{calEvents.length}</div>
                 <div className="stat-change up">{tasks.length} tasks tracked</div>
               </div>
@@ -390,21 +402,23 @@ export default function CrmView({ currentPage, setCurrentPage }) {
               </div>
 
               <div>
-                {/* Revenue */}
-                <div className="card-main" style={{marginBottom:"16px"}}>
-                  <div className="card-header"><div className="card-title">💳 Revenue</div></div>
-                  <div className="card-body">
-                    <div className="highlight-box" style={{marginBottom:"10px"}}>
-                      <div className="hb-label">Collected</div>
-                      <div className="hb-value" style={{color:"var(--accent3)"}}>₹{paid.toLocaleString("en-IN")}</div>
+                {/* Revenue (Admin Only) */}
+                {userRole === "admin" && (
+                  <div className="card-main" style={{marginBottom:"16px"}}>
+                    <div className="card-header"><div className="card-title">💳 Revenue</div></div>
+                    <div className="card-body">
+                      <div className="highlight-box" style={{marginBottom:"10px"}}>
+                        <div className="hb-label">Collected</div>
+                        <div className="hb-value" style={{color:"var(--accent3)"}}>₹{paid.toLocaleString("en-IN")}</div>
+                      </div>
+                      <div style={{display:"flex",gap:"10px"}}>
+                        <div className="highlight-box" style={{flex:1}}><div className="hb-label">Pending</div><div className="hb-value" style={{fontSize:"17px",color:"var(--accent4)"}}>₹{pending.toLocaleString("en-IN")}</div></div>
+                        <div className="highlight-box" style={{flex:1}}><div className="hb-label">Overdue</div><div className="hb-value" style={{fontSize:"17px",color:"var(--accent2)"}}>₹{overdue.toLocaleString("en-IN")}</div></div>
+                      </div>
+                      {invoices.length===0&&<div style={{textAlign:"center",padding:"10px 0",color:"var(--muted)",fontSize:"12px"}}>No invoices yet. <span style={{color:"var(--accent)",cursor:"pointer"}} onClick={()=>setShowInv(true)}>Create one →</span></div>}
                     </div>
-                    <div style={{display:"flex",gap:"10px"}}>
-                      <div className="highlight-box" style={{flex:1}}><div className="hb-label">Pending</div><div className="hb-value" style={{fontSize:"17px",color:"var(--accent4)"}}>₹{pending.toLocaleString("en-IN")}</div></div>
-                      <div className="highlight-box" style={{flex:1}}><div className="hb-label">Overdue</div><div className="hb-value" style={{fontSize:"17px",color:"var(--accent2)"}}>₹{overdue.toLocaleString("en-IN")}</div></div>
-                    </div>
-                    {invoices.length===0&&<div style={{textAlign:"center",padding:"10px 0",color:"var(--muted)",fontSize:"12px"}}>No invoices yet. <span style={{color:"var(--accent)",cursor:"pointer"}} onClick={()=>setShowInv(true)}>Create one →</span></div>}
                   </div>
-                </div>
+                )}
 
                 {/* Team */}
                 <div className="card-main">
@@ -435,7 +449,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
               <div style={{fontSize:"13px",color:"var(--muted)"}}>{tasks.length} tasks · {tasks.filter(t=>t.status!=="Done").length} open · {tasks.filter(t=>t.status==="Done").length} done</div>
               <div style={{display:"flex",gap:"8px"}}>
                 <button className="btn btn-ghost" onClick={fetchAll}>↻ Refresh</button>
-                <button className="btn btn-primary" onClick={()=>setShowTask(true)}>+ Add Task</button>
+                {userRole === "admin" && <button className="btn btn-primary" onClick={()=>setShowTask(true)}>+ Add Task</button>}
               </div>
             </div>
 
@@ -459,8 +473,12 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"6px"}}>
                             <span style={{fontSize:"10px",fontWeight:"700",padding:"2px 8px",borderRadius:"4px",background:`${TAG_COLORS[(task.tag||"content").toLowerCase()]||"#6c63ff"}22`,color:TAG_COLORS[(task.tag||"content").toLowerCase()]||"#6c63ff"}}>{task.tag||"Content"}</span>
                             <div style={{display:"flex",gap:"4px"}}>
-                              <button onClick={()=>setEditTask({...task})} style={{background:"none",border:"none",cursor:"pointer",fontSize:"13px",color:"var(--muted)",padding:"0 2px"}} title="Edit">✏️</button>
-                              <button onClick={()=>deleteTask(task.ID)} style={{background:"none",border:"none",cursor:"pointer",fontSize:"13px",color:"var(--accent2)",padding:"0 2px"}} title="Delete">✕</button>
+                              {userRole === "admin" && (
+                                <>
+                                  <button onClick={()=>setEditTask({...task})} style={{background:"none",border:"none",cursor:"pointer",fontSize:"13px",color:"var(--muted)",padding:"0 2px"}} title="Edit">✏️</button>
+                                  <button onClick={()=>deleteTask(task.ID)} style={{background:"none",border:"none",cursor:"pointer",fontSize:"13px",color:"var(--accent2)",padding:"0 2px"}} title="Delete">✕</button>
+                                </>
+                              )}
                             </div>
                           </div>
                           <div className="task-name" style={{marginBottom:"4px"}}>{task.title}</div>
@@ -517,8 +535,12 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                       </div>
                       <div style={{fontSize:"12px"}}>{t.due_date||"—"}</div>
                       <div style={{display:"flex",gap:"6px"}}>
-                        <button className="btn btn-ghost" style={{fontSize:"11px",padding:"3px 8px"}} onClick={()=>setEditTask({...t})}>Edit</button>
-                        <button style={{fontSize:"11px",padding:"3px 8px",background:"rgba(255,101,132,0.1)",color:"var(--accent2)",border:"1px solid rgba(255,101,132,0.2)",borderRadius:"6px",cursor:"pointer"}} onClick={()=>deleteTask(t.ID)}>✕</button>
+                        {userRole === "admin" && (
+                          <>
+                            <button className="btn btn-ghost" style={{fontSize:"11px",padding:"3px 8px"}} onClick={()=>setEditTask({...t})}>Edit</button>
+                            <button style={{fontSize:"11px",padding:"3px 8px",background:"rgba(255,101,132,0.1)",color:"var(--accent2)",border:"1px solid rgba(255,101,132,0.2)",borderRadius:"6px",cursor:"pointer"}} onClick={()=>deleteTask(t.ID)}>✕</button>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -543,8 +565,12 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                   {Object.entries(PLATFORM_COLORS).map(([p,c])=><span key={p} style={{color:c}}>● {p.charAt(0).toUpperCase()+p.slice(1)}</span>)}
                   <span style={{color:"#6c63ff"}}>● Task Deadline</span>
                 </div>
-                <button className="btn btn-ghost" onClick={()=>setShowCal(true)}>+ Schedule Post</button>
-                <button className="btn btn-primary" onClick={()=>setShowTask(true)}>+ Add Task</button>
+                {userRole === "admin" && (
+                  <>
+                    <button className="btn btn-ghost" onClick={()=>setShowCal(true)}>+ Schedule Post</button>
+                    <button className="btn btn-primary" onClick={()=>setShowTask(true)}>+ Add Task</button>
+                  </>
+                )}
               </div>
             </div>
             <div className="card-main">
@@ -580,8 +606,12 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}>
                       <div style={{fontWeight:"700",fontSize:"14px"}}>{MONTHS[calMonth]} {selectedDay}, {calYear}</div>
                       <div style={{display:"flex",gap:"8px"}}>
-                        <button className="btn btn-ghost" style={{fontSize:"11px",padding:"4px 10px"}} onClick={()=>openTaskForDay(selectedDay)}>+ Add Task</button>
-                        <button className="btn btn-ghost" style={{fontSize:"11px",padding:"4px 10px"}} onClick={()=>openCalFormForDay(selectedDay)}>+ Schedule Post</button>
+                        {userRole === "admin" && (
+                          <>
+                            <button className="btn btn-ghost" style={{fontSize:"11px",padding:"4px 10px"}} onClick={()=>openTaskForDay(selectedDay)}>+ Add Task</button>
+                            <button className="btn btn-ghost" style={{fontSize:"11px",padding:"4px 10px"}} onClick={()=>openCalFormForDay(selectedDay)}>+ Schedule Post</button>
+                          </>
+                        )}
                         <button style={{background:"none",border:"none",cursor:"pointer",color:"var(--muted)",fontSize:"18px"}} onClick={()=>setSelectedDay(null)}>×</button>
                       </div>
                     </div>
@@ -615,7 +645,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
           <div className="page-view active">
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"20px"}}>
               <div style={{fontSize:"13px",color:"var(--muted)"}}>{team.length} member{team.length!==1?"s":""} &middot; stats auto-update from task board</div>
-              <button className="btn btn-primary" onClick={()=>setShowTeam(true)}>+ Invite Member</button>
+              {userRole === "admin" && <button className="btn btn-primary" onClick={()=>setShowTeam(true)}>+ Invite Member</button>}
             </div>
             <div className="team-grid">
               {team.map(m=>{
@@ -625,14 +655,18 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                   <div className="member-card" key={m.ID} style={{position:"relative"}}>
                     {/* Action buttons */}
                     <div style={{position:"absolute",top:"10px",right:"10px",display:"flex",gap:"6px"}}>
-                      <button
-                        onClick={()=>setEditMember({...m})}
-                        style={{background:"rgba(108,99,255,0.1)",border:"1px solid rgba(108,99,255,0.2)",borderRadius:"6px",cursor:"pointer",fontSize:"11px",color:"var(--accent)",padding:"2px 8px"}}
-                      >✏️ Edit</button>
-                      <button
-                        onClick={()=>{ if(window.confirm(`Remove ${m.name}?`)) deleteTeamMember(m.ID); }}
-                        style={{background:"rgba(255,101,132,0.1)",border:"1px solid rgba(255,101,132,0.2)",borderRadius:"6px",cursor:"pointer",fontSize:"11px",color:"var(--accent2)",padding:"2px 8px"}}
-                      >✕</button>
+                      {userRole === "admin" && (
+                        <>
+                          <button
+                            onClick={()=>setEditMember({...m})}
+                            style={{background:"rgba(108,99,255,0.1)",border:"1px solid rgba(108,99,255,0.2)",borderRadius:"6px",cursor:"pointer",fontSize:"11px",color:"var(--accent)",padding:"2px 8px"}}
+                          >✏️ Edit</button>
+                          <button
+                            onClick={()=>{ if(window.confirm(`Remove ${m.name}?`)) deleteTeamMember(m.ID); }}
+                            style={{background:"rgba(255,101,132,0.1)",border:"1px solid rgba(255,101,132,0.2)",borderRadius:"6px",cursor:"pointer",fontSize:"11px",color:"var(--accent2)",padding:"2px 8px"}}
+                          >✕</button>
+                        </>
+                      )}
                     </div>
                     <div className="member-top" style={{paddingRight:"80px"}}>
                       <div className={`avatar ${m.color||"av-blue"} member-avatar`}>{m.initials||m.name.substring(0,2).toUpperCase()}</div>
@@ -694,7 +728,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                   </div>
                 ))}
               </div>
-              <button className="btn btn-primary" onClick={()=>setShowClient(true)}>+ Add Client</button>
+              {userRole === "admin" && <button className="btn btn-primary" onClick={()=>setShowClient(true)}>+ Add Client</button>}
             </div>
             <div className="card-main">
               <div className="client-list">
@@ -713,7 +747,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                 {filteredClients.length===0&&<div style={{padding:"60px",textAlign:"center",color:"var(--muted)"}}>
                   <div style={{fontSize:"36px",marginBottom:"12px"}}>👥</div>
                   <div style={{marginBottom:"12px"}}>{clientFilter==="All"?"No clients yet":"No clients with this status"}</div>
-                  {clientFilter==="All"&&<button className="btn btn-primary" onClick={()=>setShowClient(true)}>+ Add First Client</button>}
+                  {userRole === "admin" && clientFilter==="All" && <button className="btn btn-primary" onClick={()=>setShowClient(true)}>+ Add First Client</button>}
                 </div>}
               </div>
             </div>
@@ -729,7 +763,10 @@ export default function CrmView({ currentPage, setCurrentPage }) {
               <div className="stat-card s2"><div className="stat-label">Overdue</div><div className="stat-value" style={{color:"var(--accent2)"}}>₹{overdue.toLocaleString("en-IN")}</div><div className="stat-change" style={{color:"var(--accent2)"}}>{invoices.filter(i=>i.status==="Overdue").length} overdue</div></div>
             </div>
             <div className="card-main">
-              <div className="card-header"><div className="card-title">Invoice History</div><button className="btn btn-primary" style={{fontSize:"12px",padding:"6px 14px"}} onClick={()=>setShowInv(true)}>+ Create Invoice</button></div>
+              <div className="card-header">
+                <div className="card-title">Invoice History</div>
+                {userRole === "admin" && <button className="btn btn-primary" style={{fontSize:"12px",padding:"6px 14px"}} onClick={()=>setShowInv(true)}>+ Create Invoice</button>}
+              </div>
               <div className="invoice-list">
                 <div className="invoice-row header"><div>Invoice</div><div>Client</div><div>Service</div><div>Amount</div><div>Status</div><div>Date</div></div>
                 {invoices.map(inv=>(
@@ -800,7 +837,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                     <div style={{gridColumn:"1/-1",textAlign:"center",padding:"60px",color:"var(--muted)"}}>
                       <div style={{fontSize:"36px",marginBottom:"12px"}}>👥</div>
                       <div style={{marginBottom:"12px"}}>No clients yet</div>
-                      <button className="btn btn-primary" onClick={()=>setCurrentPage("clients")}>+ Add First Client</button>
+                      {userRole === "admin" && <button className="btn btn-primary" onClick={()=>setCurrentPage("clients")}>+ Add First Client</button>}
                     </div>
                   )}
                 </div>
@@ -818,7 +855,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
               return (
                 <div>
                   <div style={{display:"flex",alignItems:"center",gap:"12px",marginBottom:"24px"}}>
-                    <button className="btn btn-ghost" style={{padding:"6px 14px"}} onClick={()=>setSelectedClient(null)}>← Back</button>
+                    {userRole !== "client" && <button className="btn btn-ghost" style={{padding:"6px 14px"}} onClick={()=>setSelectedClient(null)}>← Back</button>}
                     <div className={`client-logo ${c.color||"av-purple"}`} style={{width:"42px",height:"42px",fontSize:"16px",borderRadius:"10px"}}>{c.initials||c.name.substring(0,2).toUpperCase()}</div>
                     <div>
                       <div style={{fontFamily:"'Clash Display'",fontSize:"20px",fontWeight:"700"}}>{c.name}</div>

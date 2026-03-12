@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
 import Navbar from './Navbar';
@@ -188,10 +188,10 @@ const WorkCategoryPage = () => {
 
              <div className="w-full h-[1px] bg-[#000000]/20 mb-8 max-w-sm"></div>
              
-             <a href="mailto:priyathamtella@gmail.com" className="flex items-center gap-4 text-xl font-medium text-[#000000] hover:text-[#C4B5FD] transition-colors group mb-12 w-fit">
+             <Link to="/contact" className="flex items-center gap-4 text-xl font-medium text-[#000000] hover:text-[#C4B5FD] transition-colors group mb-12 w-fit">
                Let's talk specs 
                <ArrowRight size={24} className="group-hover:translate-x-2 transition-transform" />
-             </a>
+             </Link>
 
              <p className="text-base md:text-lg font-medium text-[#000000]/70 max-w-md leading-relaxed">
                Whether it's highly technical 3D modeling or capturing the perfect lifestyle shot, we have the gear and the talent. Let's discuss your specific needs.
