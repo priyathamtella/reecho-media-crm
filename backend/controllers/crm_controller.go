@@ -233,9 +233,13 @@ func DeleteCalendarEvent(c *fiber.Ctx) error {
 
 // --- CONTACT FORM ---
 type ContactRequest struct {
-	Name    string `json:"name"`
-	Email   string `json:"email"`
-	Details string `json:"details"`
+	Name               string `json:"name"`
+	Email              string `json:"email"`
+	ContactNo          string `json:"contactNo"`
+	ServicesLookingFor string `json:"servicesLookingFor"`
+	CompanyName        string `json:"companyName"`
+	CompanyWebsite     string `json:"companyWebsite"`
+	Details            string `json:"details"`
 }
 
 func ContactUs(c *fiber.Ctx) error {
@@ -244,8 +248,9 @@ func ContactUs(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
-	subject := fmt.Sprintf("New Project Inquiry from %s", req.Name)
-	body := fmt.Sprintf("You have received a new contact submission layout:\n\nName: %s\nEmail: %s\nProject Details:\n%s\n", req.Name, req.Email, req.Details)
+	subject := fmt.Sprintf("🚀 New Project Inquiry from %s! Let's build something epic.", req.Name)
+	body := fmt.Sprintf("Hey Team Reecho,\n\nWe just received a fresh inquiry from an exciting new lead! Here are all the details to get the ball rolling:\n\n✨ The Visionary: %s\n📧 Email Address: %s\n📱 Contact No: %s\n\n💼 Company: %s\n🌐 Website: %s\n\n🎯 Services Desired: %s\n\n💬 Their Ideas & Message:\n\"%s\"\n\nLet's reach out and create some magic! 🔥", 
+		req.Name, req.Email, req.ContactNo, req.CompanyName, req.CompanyWebsite, req.ServicesLookingFor, req.Details)
 
 	sendEmail("priyathamtella@gmail.com", subject, body)
 	
