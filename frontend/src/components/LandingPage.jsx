@@ -1,14 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Star, Play, Instagram, Twitter, Linkedin, Mail, MapPin, Phone } from 'lucide-react';
+import { ArrowRight, Star, Play, Instagram, Twitter, Linkedin } from 'lucide-react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import Navbar from './Navbar';
 import Footer from './Footer';
 
 const LandingPage = () => {
-  const [formData, setFormData] = useState({ name: '', email: '', details: '' });
-  const [formStatus, setFormStatus] = useState('idle'); // idle, loading, success, error
-
   const heroWords = ["CREATIVITY.", "CONTENT.", "STRATEGY."];
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
 
@@ -30,28 +27,7 @@ const LandingPage = () => {
     return () => clearInterval(wordInterval);
   }, []);
 
-  const handleContactSubmit = async (e) => {
-    e.preventDefault();
-    setFormStatus('loading');
-    try {
-      const res = await fetch('http://localhost:5050/contact', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-      if (res.ok) {
-        setFormStatus('success');
-        setFormData({ name: '', email: '', details: '' });
-        setTimeout(() => setFormStatus('idle'), 3000);
-      } else {
-        setFormStatus('error');
-      }
-    } catch (err) {
-      setFormStatus('error');
-    }
-  };
+
 
   const dummyImages = [
     "https://images.unsplash.com/photo-1542204165-65bf26472b9b?auto=format&fit=crop&q=80&w=800",
@@ -286,74 +262,33 @@ const LandingPage = () => {
         variants={staggerContainer}
         className="pt-16 min-h-[60vh] flex flex-col items-center bg-[#F4F4FA]"
       >
-        <div className="max-w-[1200px] w-full mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-12 mb-16">
-          <motion.div variants={fadeInLeft} className="flex flex-col justify-center">
-             {/* Small visual accent matching video */}
-             <div className="w-16 h-16 bg-[#C4B5FD] text-[#0F172A] flex items-center justify-center rounded-full mb-6">
-               <ArrowRight size={32} className="rotate-45" />
-             </div>
-             <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter leading-none mb-6 text-[#0F172A]" style={{ fontFamily: '"Dela Gothic One", impact, sans-serif' }}>
-               Tell Us <br/>What's Up!
+        <div className="max-w-[1400px] w-full mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 bg-[#E4E7E4] rounded-none sm:rounded-[32px] overflow-hidden mb-16 relative">
+          
+          <motion.div variants={fadeInLeft} className="flex flex-col justify-center p-8 md:p-16 lg:p-24 z-10 w-full">
+             <h2 className="text-4xl md:text-[3.5rem] lg:text-[4.5rem] font-black uppercase tracking-tight leading-[0.9] mb-16 text-[#202020]" style={{ fontFamily: '"Impact", "Bebas Neue", sans-serif' }}>
+               READY TO BRING YOUR VISION TO LIFE?<br/>
+               CONTACT REECHO TODAY!
              </h2>
-             <p className="text-lg md:text-xl font-medium text-[#0F172A]/70 mb-8">Need help with a project or just want to chat?</p>
-             <div className="space-y-4 text-[#0F172A]/80 font-medium text-base">
-                <p className="flex items-center gap-3"><MapPin className="text-[#C4B5FD]" size={22} /> 123 Creator Ave, Mumbai</p>
-                <p className="flex items-center gap-3"><Mail className="text-[#C4B5FD]" size={22} /> priyathamtella@gmail.com</p>
-                <p className="flex items-center gap-3"><Phone className="text-[#C4B5FD]" size={22} /> +91 98765 43210</p>
-             </div>
+
+             <div className="w-full h-[1px] bg-[#202020]/20 mb-8 max-w-sm"></div>
+             
+             <a href="mailto:priyathamtella@gmail.com" className="flex items-center gap-4 text-xl font-medium text-[#202020] hover:text-[#C4B5FD] transition-colors group mb-12 w-fit">
+               Get in touch 
+               <ArrowRight size={24} className="group-hover:translate-x-2 transition-transform" />
+             </a>
+
+             <p className="text-base md:text-lg font-medium text-[#202020]/70 max-w-md leading-relaxed">
+               We'd love to hear from you! Whether you have questions, feedback, or a project idea, feel free to reach out. Our team is committed to responding within 24 hours to assist you promptly.
+             </p>
           </motion.div>
 
-          <motion.div variants={fadeInUp} className="bg-white rounded-[40px] p-8 md:p-12 shadow-xl border border-[#0F172A]/5">
-            <form onSubmit={handleContactSubmit} className="flex flex-col gap-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <div>
-                   <label className="block text-base font-bold uppercase tracking-wider mb-2 text-[#0F172A]/70">Name *</label>
-                   <input 
-                     type="text" required
-                     value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})}
-                     className="w-full p-4 bg-[#F4F4FA] border border-[#0F172A]/10 rounded-2xl outline-none focus:border-[#C4B5FD] focus:ring-1 focus:ring-[#C4B5FD] transition-all"
-                   />
-                 </div>
-                 <div>
-                   <label className="block text-base font-bold uppercase tracking-wider mb-2 text-[#0F172A]/70">Email *</label>
-                   <input 
-                     type="email" required
-                     value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})}
-                     className="w-full p-4 bg-[#F4F4FA] border border-[#0F172A]/10 rounded-2xl outline-none focus:border-[#C4B5FD] focus:ring-1 focus:ring-[#C4B5FD] transition-all"
-                   />
-                 </div>
-              </div>
-              
-              <div>
-                <label className="block text-base font-bold uppercase tracking-wider mb-2 text-[#0F172A]/70">Services You're Looking For</label>
-                <select className="w-full p-4 bg-[#F4F4FA] border border-[#0F172A]/10 rounded-2xl outline-none focus:border-[#C4B5FD] transition-all appearance-none text-[#0F172A]/80">
-                  <option>Select a service</option>
-                  <option>Brand Strategy</option>
-                  <option>Photography</option>
-                  <option>Website Design</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-base font-bold uppercase tracking-wider mb-2 text-[#0F172A]/70">Your message</label>
-                <textarea 
-                  required
-                  value={formData.details} onChange={e => setFormData({...formData, details: e.target.value})}
-                  className="w-full p-4 bg-[#F4F4FA] border border-[#0F172A]/10 rounded-2xl outline-none focus:border-[#C4B5FD] focus:ring-1 focus:ring-[#C4B5FD] transition-all resize-none h-32"
-                ></textarea>
-              </div>
-              
-              <button 
-                type="submit" disabled={formStatus === 'loading'}
-                className="w-full mt-4 py-5 bg-[#0F172A] text-white rounded-full font-bold uppercase tracking-widest hover:bg-[#C4B5FD] hover:text-[#0F172A] transition-colors duration-500 ease-easeInOut disabled:opacity-50 flex items-center justify-center gap-3 text-base"
-              >
-                {formStatus === 'loading' ? 'Sending...' : 'Submit Form'} 
-                {formStatus !== 'loading' && <ArrowRight size={20} />}
-              </button>
-
-              {formStatus === 'success' && <p className="text-green-600 font-bold text-center mt-2">Message sent successfully!</p>}
-              {formStatus === 'error' && <p className="text-red-500 font-bold text-center mt-2">Failed to send message.</p>}
-            </form>
+          {/* Right side Image block */}
+          <motion.div variants={fadeInUp} className="relative w-full h-full min-h-[400px] lg:min-h-full">
+            <img 
+              src="https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?auto=format&fit=crop&q=80&w=1200" 
+              alt="Person working on laptop"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
           </motion.div>
         </div>
       </motion.section>

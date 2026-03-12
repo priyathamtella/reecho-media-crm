@@ -2,6 +2,7 @@ import React from 'react';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import { motion } from 'framer-motion';
+import { ArrowRight } from 'lucide-react';
 
 const CampaignsPage = () => {
   const dummyImages = [
@@ -54,6 +55,42 @@ const CampaignsPage = () => {
           ))}
         </motion.section>
       </main>
+
+      <motion.section 
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={staggerContainer}
+        className="flex flex-col items-center bg-[#F4F4FA]"
+      >
+        <div className="max-w-[1400px] w-full mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 bg-[#FCEBF0] rounded-none sm:rounded-[32px] overflow-hidden mb-16 relative mt-16">
+          <motion.div variants={{ hidden: { opacity: 0, x: -50 }, visible: { opacity: 1, x: 0, transition: { duration: 0.8, ease: "easeOut" } } }} className="flex flex-col justify-center p-8 md:p-16 lg:p-24 z-10 w-full">
+             <h2 className="text-4xl md:text-[3.5rem] lg:text-[4.5rem] font-black uppercase tracking-tight leading-[0.9] mb-16 text-[#000000]" style={{ fontFamily: '"Impact", "Bebas Neue", sans-serif' }}>
+               WANT TO RUN A SHOW-STOPPING CAMPAIGN?<br/>
+               WE'RE READY.
+             </h2>
+
+             <div className="w-full h-[1px] bg-[#000000]/20 mb-8 max-w-sm"></div>
+             
+             <a href="mailto:priyathamtella@gmail.com" className="flex items-center gap-4 text-xl font-medium text-[#000000] hover:text-[#C4B5FD] transition-colors group mb-12 w-fit">
+               Let's collaborate 
+               <ArrowRight size={24} className="group-hover:translate-x-2 transition-transform" />
+             </a>
+
+             <p className="text-base md:text-lg font-medium text-[#000000]/70 max-w-md leading-relaxed">
+               Ready to go viral? From ideation to execution, our campaigns are designed to get noticed and drive real results. Let's make some noise.
+             </p>
+          </motion.div>
+
+          <motion.div variants={{ hidden: { opacity: 0, y: 50 }, visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: "easeOut" } } }} className="relative w-full h-full min-h-[400px] lg:min-h-full">
+            <img 
+              src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200" 
+              alt="Campaign Concept"
+              className="absolute inset-0 w-full h-full object-cover grayscale opacity-90 mix-blend-multiply"
+            />
+          </motion.div>
+        </div>
+      </motion.section>
 
       <Footer />
     </div>

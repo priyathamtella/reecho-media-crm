@@ -5,12 +5,26 @@ import { motion } from 'framer-motion';
 import { ArrowRight, MapPin, Mail, Phone } from 'lucide-react';
 
 const ContactPage = () => {
-  const [formData, setFormData] = useState({ name: '', email: '', details: '' });
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    contactNo: '',
+    servicesLookingFor: '',
+    companyName: '',
+    companyWebsite: '',
+    details: ''
+  });
   const [formStatus, setFormStatus] = useState('idle');
 
   const handleContactSubmit = async (e) => {
     e.preventDefault();
     setFormStatus('loading');
+    
+    // Construct WhatsApp Message
+    const text = `🚀 *New Lead Alert! Let's Make Some Magic!* 🚀\n\nHey Team Reecho! We just got a brand new project inquiry from *${formData.name}*.\n\n✨ *The Visionary:* ${formData.name}\n📧 *Email:* ${formData.email}\n📱 *Contact:* ${formData.contactNo}\n💼 *Company:* ${formData.companyName || 'N/A'} (🌐 ${formData.companyWebsite || 'N/A'})\n\n🎯 *What They Need:* ${formData.servicesLookingFor}\n\n💬 *Their Message/Idea:*\n"${formData.details}"\n\nLet's get in touch and build something incredible! 🔥`;
+    const encodedText = encodeURIComponent(text);
+    const whatsappUrl = `https://wa.me/919121492646?text=${encodedText}`;
+
     try {
       const res = await fetch('http://localhost:5050/contact', {
         method: 'POST',
@@ -19,14 +33,23 @@ const ContactPage = () => {
         },
         body: JSON.stringify(formData),
       });
+      
       if (res.ok) {
+        // Open WhatsApp in a new tab
+        window.open(whatsappUrl, '_blank');
+        
         setFormStatus('success');
-        setFormData({ name: '', email: '', details: '' });
+        setFormData({ name: '', email: '', contactNo: '', servicesLookingFor: '', companyName: '', companyWebsite: '', details: '' });
         setTimeout(() => setFormStatus('idle'), 3000);
       } else {
+        // Even if email fails, let's at least open WhatsApp so you don't lose the lead
+        window.open(whatsappUrl, '_blank');
+        
         setFormStatus('error');
       }
     } catch (err) {
+      // Even if email fails, let's at least open WhatsApp so you don't lose the lead
+      window.open(whatsappUrl, '_blank');
       setFormStatus('error');
     }
   };
@@ -35,105 +58,104 @@ const ContactPage = () => {
     hidden: { opacity: 0, y: 50 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: "easeOut" } }
   };
-  
-  const fadeInLeft = {
-    hidden: { opacity: 0, x: -50 },
-    visible: { opacity: 1, x: 0, transition: { duration: 0.8, ease: "easeOut" } }
-  };
-
-  const staggerContainer = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.2 } }
-  };
 
   return (
-    <div className="min-h-screen bg-[#F4F4FA] text-[#0F172A] font-sans overflow-x-hidden selection:bg-[#0F172A] selection:text-[#C4B5FD] flex flex-col">
+    <div className="min-h-screen bg-white text-[#0F172A] font-sans overflow-x-hidden selection:bg-[#0F172A] selection:text-[#C4B5FD] flex flex-col">
       <Navbar />
 
-      <main className="flex-1 pt-32 pb-24">
-        <motion.section 
-          id="contact" 
-          initial="hidden" animate="visible" variants={staggerContainer}
-          className="pt-24 min-h-[80vh] flex flex-col items-center bg-[#F4F4FA]"
-        >
-          <div className="max-w-[1400px] w-full mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-16 mb-24">
-            <motion.div variants={fadeInLeft} className="flex flex-col justify-center">
-               <div className="w-20 h-20 bg-[#C4B5FD] text-[#0F172A] flex items-center justify-center rounded-full mb-8 shadow-xl">
-                 <ArrowRight size={40} className="rotate-45" />
+      <main className="flex-1 pt-32 pb-24 px-6 md:px-12 w-full max-w-7xl mx-auto flex flex-col justify-center">
+        <motion.div initial="hidden" animate="visible" variants={fadeInUp} className="mb-12">
+          <h1 className="text-5xl md:text-7xl font-black uppercase text-[#2B2B2B] tracking-tight mb-8" style={{ fontFamily: '"Impact", "Bebas Neue", sans-serif' }}>
+            GET IN TOUCH
+          </h1>
+
+          <form onSubmit={handleContactSubmit} className="flex flex-col gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+               <div className="flex flex-col gap-2">
+                 <label className="text-sm font-black uppercase tracking-wide text-[#2B2B2B]" style={{ fontFamily: '"Impact", "Bebas Neue", sans-serif' }}>YOUR NAME</label>
+                 <input 
+                   type="text" required placeholder="Name"
+                   value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})}
+                   className="w-full p-4 bg-white border border-[#2B2B2B]/20 rounded-md outline-none focus:border-[#C4B5FD] transition-colors text-sm text-[#2B2B2B]/80 font-medium"
+                 />
                </div>
-               <h2 className="text-5xl md:text-7xl lg:text-8xl font-black uppercase tracking-tighter leading-none mb-6 text-[#0F172A]" style={{ fontFamily: '"Dela Gothic One", impact, sans-serif' }}>
-                 Tell Us <br/>What's Up!
-               </h2>
-               <p className="text-xl md:text-2xl font-medium text-[#0F172A]/70 mb-12">Need help with a project or just want to chat?</p>
-               <div className="space-y-6 text-[#0F172A]/80 font-bold text-lg md:text-xl">
-                  <p className="flex items-center gap-4 hover:text-[#C4B5FD] transition-colors cursor-pointer"><MapPin className="text-[#C4B5FD]" size={24} /> 123 Creator Ave, Mumbai</p>
-                  <p className="flex items-center gap-4 hover:text-[#C4B5FD] transition-colors cursor-pointer"><Mail className="text-[#C4B5FD]" size={24} /> priyathamtella@gmail.com</p>
-                  <p className="flex items-center gap-4 hover:text-[#C4B5FD] transition-colors cursor-pointer"><Phone className="text-[#C4B5FD]" size={24} /> +91 98765 43210</p>
+               <div className="flex flex-col gap-2">
+                 <label className="text-sm font-black uppercase tracking-wide text-[#2B2B2B]" style={{ fontFamily: '"Impact", "Bebas Neue", sans-serif' }}>EMAIL ADDRESS</label>
+                 <input 
+                   type="email" required placeholder="Email"
+                   value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})}
+                   className="w-full p-4 bg-white border border-[#2B2B2B]/20 rounded-md outline-none focus:border-[#C4B5FD] transition-colors text-sm text-[#2B2B2B]/80 font-medium"
+                 />
                </div>
-            </motion.div>
+               
+               <div className="flex flex-col gap-2">
+                 <label className="text-sm font-black uppercase tracking-wide text-[#2B2B2B]" style={{ fontFamily: '"Impact", "Bebas Neue", sans-serif' }}>CONTACT NO.</label>
+                 <input 
+                   type="tel" required placeholder="Contact No."
+                   value={formData.contactNo} onChange={e => setFormData({...formData, contactNo: e.target.value})}
+                   className="w-full p-4 bg-white border border-[#2B2B2B]/20 rounded-md outline-none focus:border-[#C4B5FD] transition-colors text-sm text-[#2B2B2B]/80 font-medium"
+                 />
+               </div>
+               <div className="flex flex-col gap-2">
+                 <label className="text-sm font-black uppercase tracking-wide text-[#2B2B2B]" style={{ fontFamily: '"Impact", "Bebas Neue", sans-serif' }}>SERVICES YOU'RE LOOKING FOR?</label>
+                 <select 
+                   required
+                   value={formData.servicesLookingFor} onChange={e => setFormData({...formData, servicesLookingFor: e.target.value})}
+                   className="w-full p-4 bg-white border border-[#2B2B2B]/20 rounded-md outline-none focus:border-[#C4B5FD] transition-colors text-sm text-[#2B2B2B]/80 font-medium appearance-none"
+                 >
+                   <option value="" disabled>Select</option>
+                   <option>Brand Activations</option>
+                   <option>360° Digital Marketing</option>
+                   <option>Content Creation</option>
+                   <option>3D Animation and CGI</option>
+                   <option>Performance Marketing</option>
+                   <option>Website Design and Development</option>
+                   <option>Consulting</option>
+                   <option>Designing and Branding</option>
+                   <option>Social Media</option>
+                   <option>Hero Campaigns</option>
+                   <option>Personal Branding</option>
+                 </select>
+               </div>
 
-            <motion.div variants={fadeInUp} className="bg-white rounded-[40px] p-8 md:p-14 shadow-2xl border border-[#0F172A]/5 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-[#C4B5FD]/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
-              <form onSubmit={handleContactSubmit} className="flex flex-col gap-8 relative z-10">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                   <div className="space-y-2">
-                     <label className="block text-xs font-black uppercase tracking-[0.2em] text-[#0F172A]/50">Name *</label>
-                     <input 
-                       type="text" required
-                       value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})}
-                       className="w-full p-5 bg-[#F4F4FA] border border-[#0F172A]/10 rounded-[20px] outline-none focus:border-[#C4B5FD] focus:ring-4 focus:ring-[#C4B5FD]/10 transition-all font-bold"
-                     />
-                   </div>
-                   <div className="space-y-2">
-                     <label className="block text-xs font-black uppercase tracking-[0.2em] text-[#0F172A]/50">Email *</label>
-                     <input 
-                       type="email" required
-                       value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})}
-                       className="w-full p-5 bg-[#F4F4FA] border border-[#0F172A]/10 rounded-[20px] outline-none focus:border-[#C4B5FD] focus:ring-4 focus:ring-[#C4B5FD]/10 transition-all font-bold"
-                     />
-                   </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="block text-xs font-black uppercase tracking-[0.2em] text-[#0F172A]/50">Services You're Looking For</label>
-                  <div className="relative">
-                    <select className="w-full p-5 bg-[#F4F4FA] border border-[#0F172A]/10 rounded-[20px] outline-none focus:border-[#C4B5FD] transition-all appearance-none text-[#0F172A]/80 font-bold">
-                      <option>Select a service</option>
-                      <option>Brand Strategy</option>
-                      <option>Photography</option>
-                      <option>Website Design</option>
-                      <option>3D Animation</option>
-                    </select>
-                    <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">
-                       <ArrowRight size={20} className="rotate-90" />
-                    </div>
-                  </div>
-                </div>
+               <div className="flex flex-col gap-2">
+                 <label className="text-sm font-black uppercase tracking-wide text-[#2B2B2B]" style={{ fontFamily: '"Impact", "Bebas Neue", sans-serif' }}>COMPANY NAME</label>
+                 <input 
+                   type="text" placeholder="Company Name"
+                   value={formData.companyName} onChange={e => setFormData({...formData, companyName: e.target.value})}
+                   className="w-full p-4 bg-white border border-[#2B2B2B]/20 rounded-md outline-none focus:border-[#C4B5FD] transition-colors text-sm text-[#2B2B2B]/80 font-medium"
+                 />
+               </div>
+               <div className="flex flex-col gap-2">
+                 <label className="text-sm font-black uppercase tracking-wide text-[#2B2B2B]" style={{ fontFamily: '"Impact", "Bebas Neue", sans-serif' }}>COMPANY WEBSITE (OPTIONAL)</label>
+                 <input 
+                   type="text" placeholder="www.xyz.com"
+                   value={formData.companyWebsite} onChange={e => setFormData({...formData, companyWebsite: e.target.value})}
+                   className="w-full p-4 bg-white border border-[#2B2B2B]/20 rounded-md outline-none focus:border-[#C4B5FD] transition-colors text-sm text-[#2B2B2B]/80 font-medium"
+                 />
+               </div>
+            </div>
 
-                <div className="space-y-2">
-                  <label className="block text-xs font-black uppercase tracking-[0.2em] text-[#0F172A]/50">Your message</label>
-                  <textarea 
-                    required
-                    value={formData.details} onChange={e => setFormData({...formData, details: e.target.value})}
-                    className="w-full p-5 bg-[#F4F4FA] border border-[#0F172A]/10 rounded-[20px] outline-none focus:border-[#C4B5FD] focus:ring-4 focus:ring-[#C4B5FD]/10 transition-all resize-none h-40 font-bold"
-                    placeholder="Tell us about your project..."
-                  ></textarea>
-                </div>
-                
-                <button 
-                  type="submit" disabled={formStatus === 'loading'}
-                  className="w-full mt-4 py-6 bg-[#0F172A] text-[#F4F4FA] rounded-full font-black uppercase tracking-[0.3em] hover:bg-[#C4B5FD] hover:text-[#0F172A] transition-all duration-500 disabled:opacity-50 flex items-center justify-center gap-4 text-sm shadow-xl"
-                >
-                  {formStatus === 'loading' ? 'Sending...' : 'Start Project'} 
-                  {formStatus !== 'loading' && <ArrowRight size={24} />}
-                </button>
+            <div className="flex flex-col gap-2">
+               <label className="text-sm font-black uppercase tracking-wide text-[#2B2B2B]" style={{ fontFamily: '"Impact", "Bebas Neue", sans-serif' }}>YOUR MESSAGE</label>
+               <textarea 
+                 required placeholder="Message"
+                 value={formData.details} onChange={e => setFormData({...formData, details: e.target.value})}
+                 className="w-full p-4 bg-white border border-[#2B2B2B]/20 rounded-md outline-none focus:border-[#C4B5FD] transition-colors text-sm text-[#2B2B2B]/80 font-medium h-48 resize-y"
+               ></textarea>
+            </div>
+            
+            <button 
+              type="submit" disabled={formStatus === 'loading'}
+              className="mt-2 py-4 px-8 bg-[#2B2B2B] text-white rounded-md font-black uppercase tracking-widest hover:bg-[#C4B5FD] hover:text-[#2B2B2B] transition-colors duration-300 disabled:opacity-50 text-sm w-fit"
+            >
+              {formStatus === 'loading' ? 'SENDING...' : 'SUBMIT'}
+            </button>
 
-                {formStatus === 'success' && <p className="text-green-600 font-bold text-center mt-2">Message sent successfully!</p>}
-                {formStatus === 'error' && <p className="text-red-500 font-bold text-center mt-2">Failed to send message.</p>}
-              </form>
-            </motion.div>
-          </div>
-        </motion.section>
+            {formStatus === 'success' && <p className="text-green-600 font-bold mt-2">Message sent successfully!</p>}
+            {formStatus === 'error' && <p className="text-red-500 font-bold mt-2">Failed to send message.</p>}
+          </form>
+        </motion.div>
       </main>
 
       <Footer />

@@ -34,9 +34,9 @@ const Footer = () => {
       </div>
 
       {/* HUGE WE ARE Text in footer */}
-      <div className="w-full relative px-6 mt-8 mb-4 overflow-hidden z-20 max-w-[1600px] mx-auto text-left text-[#C4B5FD]">
-         <h1 className="text-[12vw] sm:text-[14vw] font-black uppercase leading-[0.8]" style={{ fontFamily: '"Bebas Neue", impact, sans-serif' }}>
-            WE ARE REECHO
+      <div className="w-[110%] -ml-[5%] relative mt-16 mb-8 overflow-hidden z-20 mx-auto text-center text-[#C4B5FD] select-none pointer-events-none">
+         <h1 className="text-[15vw] sm:text-[18vw] font-black uppercase leading-[0.75] tracking-tighter" style={{ fontFamily: '"Bebas Neue", impact, sans-serif' }}>
+            REECHO
          </h1>
       </div>
 
