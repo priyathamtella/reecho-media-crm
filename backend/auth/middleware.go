@@ -30,6 +30,12 @@ func AuthRequired(c *fiber.Ctx) error {
 	// 4. Extract userID and pass it to the controller [cite: 116]
 	claims := token.Claims.(jwt.MapClaims)
 	c.Locals("userID", claims["userID"])
+	if role, ok := claims["role"]; ok {
+		c.Locals("role", role)
+	}
+	if email, ok := claims["email"]; ok {
+		c.Locals("email", email)
+	}
 
 	return c.Next()
 }

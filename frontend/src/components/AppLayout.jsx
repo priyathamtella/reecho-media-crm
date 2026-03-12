@@ -25,7 +25,8 @@ const AppLayout = ({ children }) => {
     
     const userName = localStorage.getItem("userName") || "User";
     const userEmail = localStorage.getItem("userEmail") || "";
-    const [currentPage, setCurrentPage] = useState("overview");
+    const userRole = localStorage.getItem("userRole") || "admin";
+    const [currentPage, setCurrentPage] = useState(userRole === "client" ? "portal" : "overview");
 
 
     // Apply dark mode
@@ -135,28 +136,32 @@ const AppLayout = ({ children }) => {
                 <div className="flex-1 overflow-y-auto py-3 px-3 space-y-4">
 
                     {/* ── BOARD & DOCUMENT BUTTON ── */}
-                    <button
-                        onClick={() => { setCurrentPage("boards"); navigate("/dashboard"); }}
-                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all mb-1 ${currentPage === "boards" && location.pathname === "/dashboard"
-                            ? "bg-indigo-600 text-white shadow-md"
-                            : isDark ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100"}`}
-                    >
-                        <LayoutGrid size={14} className={currentPage === "boards" && location.pathname === "/dashboard" ? "text-white" : "text-indigo-500"} />
-                        Board &amp; Document
-                    </button>
+                    {userRole !== "client" && (
+                        <button
+                            onClick={() => { setCurrentPage("boards"); navigate("/dashboard"); }}
+                            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all mb-1 ${currentPage === "boards" && location.pathname === "/dashboard"
+                                ? "bg-indigo-600 text-white shadow-md"
+                                : isDark ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100"}`}
+                        >
+                            <LayoutGrid size={14} className={currentPage === "boards" && location.pathname === "/dashboard" ? "text-white" : "text-indigo-500"} />
+                            Board &amp; Document
+                        </button>
+                    )}
 
                     {/* ── AGENCY WORKSPACE ── */}
                     <div>
                         <div className={`text-[10px] font-black uppercase tracking-widest px-2 mt-4 mb-2 ${isDark ? "text-slate-500" : "text-slate-400"}`}>Agency Workspace</div>
                         {[
-                            { page:"overview",  label:"Overview",         Icon:LayoutGrid   },
-                            { page:"tasks",     label:"Task Board",       Icon:CheckSquare  },
-                            { page:"calendar",  label:"Content Calendar", Icon:Calendar     },
-                            { page:"team",      label:"Team Members",     Icon:Users        },
-                            { page:"clients",   label:"Clients",          Icon:Briefcase    },
-                            { page:"payments",  label:"Payments",         Icon:CreditCard   },
-                            { page:"portal",    label:"Client Hub",       Icon:ExternalLink },
-                        ].map(({ page, label, Icon }) => (
+                            { page:"overview",  label:"Overview",         Icon:LayoutGrid, roles: ["admin", "member"]   },
+                            { page:"tasks",     label:"Task Board",       Icon:CheckSquare, roles: ["admin", "member"]  },
+                            { page:"calendar",  label:"Content Calendar", Icon:Calendar, roles: ["admin", "member"]     },
+                            { page:"team",      label:"Team Members",     Icon:Users, roles: ["admin"]        },
+                            { page:"clients",   label:"Clients",          Icon:Briefcase, roles: ["admin"]    },
+                            { page:"payments",  label:"Payments",         Icon:CreditCard, roles: ["admin", "member"]   },
+                            { page:"portal",    label:"Client Hub",       Icon:ExternalLink, roles: ["admin", "client"] },
+                        ]
+                        .filter(item => item.roles.includes(userRole))
+                        .map(({ page, label, Icon }) => (
                             <button key={page}
                                 onClick={() => { setCurrentPage(page); navigate("/dashboard"); }}
                                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all mb-1 ${currentPage === page && location.pathname === "/dashboard"

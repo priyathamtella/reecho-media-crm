@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Navbar from './Navbar';
+import { Link } from 'react-router-dom';
 import Footer from './Footer';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
@@ -149,10 +150,10 @@ const ServicesPage = () => {
 
              <div className="w-full h-[1px] bg-[#000000]/20 mb-8 max-w-sm"></div>
              
-             <a href="mailto:priyathamtella@gmail.com" className="flex items-center gap-4 text-xl font-medium text-[#000000] hover:text-[#C4B5FD] transition-colors group mb-12 w-fit">
+             <Link to="/contact" className="flex items-center gap-4 text-xl font-medium text-[#000000] hover:text-[#C4B5FD] transition-colors group mb-12 w-fit">
                Let's connect 
                <ArrowRight size={24} className="group-hover:translate-x-2 transition-transform" />
-             </a>
+             </Link>
 
              <p className="text-base md:text-lg font-medium text-[#000000]/70 max-w-md leading-relaxed">
                Discover how our tailored, multidisciplinary approach can streamline your creative process and push your business forward. We’re ready when you are.

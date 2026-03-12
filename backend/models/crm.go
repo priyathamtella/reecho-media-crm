@@ -1,6 +1,10 @@
 package models
 
-import "gorm.io/gorm"
+import (
+	"strings"
+
+	"gorm.io/gorm"
+)
 
 type Client struct {
 	gorm.Model
@@ -24,6 +28,20 @@ type Task struct {
 	Status    string `json:"status"` // To Do, In Progress, In Review, Done
 	DueDate   string `json:"due_date"`
 	Assignees string `json:"assignees"`
+}
+
+func SplitAssignees(s string) []string {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	res := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if trimmed := strings.TrimSpace(p); trimmed != "" {
+			res = append(res, trimmed)
+		}
+	}
+	return res
 }
 
 type Invoice struct {

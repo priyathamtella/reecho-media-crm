@@ -54,9 +54,13 @@ const Board = () => {
   const [bgType, setBgType] = useState("dots");
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("theme") === "dark");
   const [presentationMode, setPresentationMode] = useState(false);
+  const [userRole] = useState(() => localStorage.getItem("userRole") || "admin");
+  const [boardData, setBoardData] = useState(null);
 
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [dragPan, setDragPan] = useState(null);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
 
   // Keep refs in sync with state so event handlers always see latest values
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
@@ -200,6 +204,7 @@ const Board = () => {
         const res = await axios.get(`http://localhost:5050/api/boards/${id}?t=${Date.now()}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
+        setBoardData(res.data);
         setBoardTitle(res.data.Title || "Untitled Board");
         const loadedItems = parseBoardData(res.data.fullState);
         setItems(loadedItems);
@@ -211,6 +216,22 @@ const Board = () => {
     };
     fetchBoard();
   }, [id, navigate]);
+
+  const handleClientAction = async (status, reason = "") => {
+    const token = localStorage.getItem("token");
+    setSaveStatus("saving");
+    try {
+      await axios.post(`http://localhost:5050/api/boards/${id}/sync`, {
+        Title: boardTitle,
+        ClientStatus: status,
+        ClientFeedback: reason
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      setBoardData(prev => ({ ...prev, ClientStatus: status, ClientFeedback: reason }));
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 2000);
+      if (status === "Rejected") setShowRejectModal(false);
+    } catch { setSaveStatus("error"); }
+  };
 
 
   // ── 5. CANVAS RENDERING ──────────────────────
@@ -493,9 +514,9 @@ const Board = () => {
         </button>
       )}
 
-      {/* ── FLOATING TOOLBAR ── */}
+      {/* ── TOOLBAR ── */}
       <AnimatePresence>
-        {!presentationMode && (
+        {(!presentationMode && isLoaded && userRole === "admin") && (
           <motion.nav
             initial={{ y: -80 }} animate={{ y: 0 }} exit={{ y: -80 }}
             className={`absolute top-4 left-1/2 -translate-x-1/2 flex flex-wrap items-center gap-1.5 px-3 py-2 rounded-2xl shadow-xl border z-50 ${dm ? "bg-slate-800/95 border-slate-700" : "bg-white/95 border-slate-200"}`}
@@ -604,7 +625,7 @@ const Board = () => {
 
       {/* ── PROPERTIES PANEL ── */}
       <AnimatePresence>
-        {((selectedId || tool === "draw") && !presentationMode && tool !== "eraser") && (
+        {((selectedId || tool === "draw") && !presentationMode && tool !== "eraser" && userRole === "admin") && (
           <motion.div
             initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
             className={`absolute bottom-14 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-2xl shadow-2xl border flex flex-wrap items-center gap-3 z-50 ${dm ? "bg-slate-800 border-slate-700" : "bg-white border-slate-100"}`}
@@ -1072,6 +1093,73 @@ const MiniVideoTimeline = ({ item, isDark, onUpdate }) => {
           <span className="font-mono text-[9px] text-rose-300 tabular-nums">{fmt(trimOut)}</span>
         </div>
       </div>
+      {/* ── Client Action Overlay ── */}
+      {userRole === "client" && isLoaded && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-3 px-4 py-2.5 rounded-2xl shadow-xl border z-50 bg-white/95 border-slate-200 dark:bg-slate-800/95 dark:border-slate-700 backdrop-blur-md">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Storyboard Approval</span>
+            <span className="text-xs font-bold dark:text-white">{boardTitle}</span>
+          </div>
+          <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1" />
+          {boardData?.ClientStatus === "Approved" ? (
+            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-lg">
+              <Check size={14} /> Approved
+            </span>
+          ) : boardData?.ClientStatus === "Rejected" ? (
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500 text-white text-xs font-bold rounded-xl shadow-lg">
+                <X size={14} /> Rejected
+              </span>
+              <button onClick={() => setShowRejectModal(true)} className="text-[10px] font-bold text-indigo-500 hover:underline">Edit Reason</button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => handleClientAction("Approved")}
+                disabled={saveStatus === "saving"}
+                className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all">
+                {saveStatus === "saving" ? <Loader2 className="animate-spin" size={13} /> : <Check size={14} />} Approve
+              </button>
+              <button 
+                onClick={() => setShowRejectModal(true)}
+                disabled={saveStatus === "saving"}
+                className="flex items-center gap-1.5 px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md transition-all">
+                <X size={14} /> Reject
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Reject Reason Modal */}
+      <AnimatePresence>
+        {showRejectModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-200 dark:border-slate-700">
+              <h3 className="text-lg font-bold dark:text-white mb-2">Rejection Feedback</h3>
+              <p className="text-xs text-slate-500 mb-4">Please explain why you are rejecting this storyboard so we can improve it.</p>
+              <textarea 
+                autoFocus
+                value={rejectReason}
+                onChange={e => setRejectReason(e.target.value)}
+                placeholder="Reason for rejection..."
+                className="w-full h-32 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 outline-none text-sm dark:text-white resize-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <div className="flex justify-end gap-3 mt-6">
+                <button onClick={() => setShowRejectModal(false)} className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-all">Cancel</button>
+                <button 
+                  onClick={() => handleClientAction("Rejected", rejectReason)}
+                  disabled={!rejectReason.trim() || saveStatus === "saving"}
+                  className="px-6 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-lg transition-all disabled:opacity-50">
+                  Submit Rejection
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

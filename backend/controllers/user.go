@@ -28,6 +28,7 @@ func Register(c *fiber.Ctx) error {
 		Name:     input.Name,
 		Email:    input.Email,
 		Password: string(hashedPassword),
+		Role:     "admin", // Default to admin for main registration
 	}
 
 	// GORM will now call BeforeCreate and generate the UUID automatically
@@ -60,7 +61,7 @@ func Login(c *fiber.Ctx) error {
 	}
 
 	// Generate JWT [cite: 103, 111]
-	token, _ := auth.GenerateJWT(user.ID, user.Email)
+	token, _ := auth.GenerateJWT(user.ID, user.Role, user.Email)
 
 	return c.JSON(fiber.Map{
 		"token": token, 
@@ -68,6 +69,7 @@ func Login(c *fiber.Ctx) error {
 			"id": user.ID,
 			"name": user.Name,
 			"email": user.Email,
+			"role": user.Role,
 		},
 	})
 }
