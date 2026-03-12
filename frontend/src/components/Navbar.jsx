@@ -37,33 +37,33 @@ const Navbar = () => {
                  <div className="flex flex-col gap-4">
                    <h4 className="font-black text-sm uppercase tracking-widest text-[#0F172A]">OUR PHOTOGRAPHY</h4>
                    <Link to="/work/our-photography" className="text-xs font-bold underline underline-offset-4 text-[#0F172A] hover:text-[#C4B5FD] transition-colors uppercase w-fit">EXPLORE</Link>
-                   <div className="mt-2 w-full aspect-[4/3] rounded-xl overflow-hidden cursor-pointer group/image">
+                   <Link to="/work/our-photography" className="mt-2 w-full aspect-[4/3] rounded-xl overflow-hidden group/image block">
                      <img src="https://images.unsplash.com/photo-1542204165-65bf26472b9b?auto=format&fit=crop&q=80&w=400" className="w-full h-full object-cover group-hover/image:scale-105 transition-transform duration-500 ease-in-out" alt="Photography" />
-                   </div>
+                   </Link>
                  </div>
                  {/* Column 2: Videography */}
                  <div className="flex flex-col gap-4">
                    <h4 className="font-black text-sm uppercase tracking-widest text-[#0F172A]">OUR VIDEOGRAPHY</h4>
                    <Link to="/work/our-videography" className="text-xs font-bold underline underline-offset-4 text-[#0F172A] hover:text-[#C4B5FD] transition-colors uppercase w-fit">EXPLORE</Link>
-                  <div className="mt-2 w-full aspect-[4/3] rounded-xl overflow-hidden cursor-pointer group/image relative">
-                    <video src="https://vjs.zencdn.net/v/oceans.mp4" autoPlay loop muted playsInline className="w-full h-full object-cover group-hover/image:scale-105 transition-transform duration-500 ease-in-out" />
-                  </div>
+                   <Link to="/work/our-videography" className="mt-2 w-full aspect-[4/3] rounded-xl overflow-hidden group/image relative block">
+                     <video src="https://vjs.zencdn.net/v/oceans.mp4" autoPlay loop muted playsInline className="w-full h-full object-cover group-hover/image:scale-105 transition-transform duration-500 ease-in-out" />
+                   </Link>
                  </div>
                  {/* Column 3: UI/UX */}
                  <div className="flex flex-col gap-4">
                    <h4 className="font-black text-sm uppercase tracking-widest text-[#0F172A]">UI / UX</h4>
                    <Link to="/work/ui-ux" className="text-xs font-bold underline underline-offset-4 text-[#0F172A] hover:text-[#C4B5FD] transition-colors uppercase w-fit">EXPLORE</Link>
-                   <div className="mt-2 w-full aspect-[4/3] rounded-xl overflow-hidden cursor-pointer group/image">
+                   <Link to="/work/ui-ux" className="mt-2 w-full aspect-[4/3] rounded-xl overflow-hidden group/image block">
                      <img src="https://images.unsplash.com/photo-1621619856624-42fd193a0661?auto=format&fit=crop&q=80&w=400" className="w-full h-full object-cover group-hover/image:scale-105 transition-transform duration-500 ease-in-out" alt="UI/UX" />
-                   </div>
+                   </Link>
                  </div>
                  {/* Column 4: 3D Animation */}
                  <div className="flex flex-col gap-4">
                    <h4 className="font-black text-sm uppercase tracking-widest text-[#0F172A]">3D ANIMATION AND CGI</h4>
                    <Link to="/work/3d-animation" className="text-xs font-bold underline underline-offset-4 text-[#0F172A] hover:text-[#C4B5FD] transition-colors uppercase w-fit">EXPLORE</Link>
-                    <div className="mt-2 w-full aspect-[4/3] rounded-xl overflow-hidden cursor-pointer group/image">
-                      <img src="https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?auto=format&fit=crop&q=80&w=400" className="w-full h-full object-cover group-hover/image:scale-105 transition-transform duration-500 ease-in-out" alt="CGI" />
-                    </div>
+                   <Link to="/work/3d-animation" className="mt-2 w-full aspect-[4/3] rounded-xl overflow-hidden group/image block">
+                     <img src="https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?auto=format&fit=crop&q=80&w=400" className="w-full h-full object-cover group-hover/image:scale-105 transition-transform duration-500 ease-in-out" alt="CGI" />
+                   </Link>
                  </div>
                </div>
             </div>
