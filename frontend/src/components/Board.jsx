@@ -7,7 +7,7 @@ import {
   Trash2, Image as ImageIcon, CloudUpload, Loader2,
   Sun, Moon, Projector, X, PenTool, MousePointer2, Eraser,
   Upload, Link, Cloud, StickyNote, Smile, ZoomIn, ZoomOut,
-  Play, Pause, Edit3, Check
+  Play, Pause, Edit3, Check, Hand
 } from "lucide-react";
 
 // ─────────────────────────────────────────────
@@ -55,9 +55,31 @@ const Board = () => {
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("theme") === "dark");
   const [presentationMode, setPresentationMode] = useState(false);
 
+  const [spaceHeld, setSpaceHeld] = useState(false);
+  const [dragPan, setDragPan] = useState(null);
+
   // Keep refs in sync with state so event handlers always see latest values
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
   useEffect(() => { panRef.current = pan; }, [pan]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.code === "Space" && e.target.tagName !== "INPUT" && e.target.tagName !== "TEXTAREA") {
+        setSpaceHeld(true);
+      }
+    };
+    const handleKeyUp = (e) => {
+      if (e.code === "Space") {
+        setSpaceHeld(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
 
   // ── Helper: screen (clientX/Y) → canvas coordinates ──────────────────────
   // Must use refs so it can be called inside event handlers without stale closure.
@@ -79,43 +101,47 @@ const Board = () => {
       e.stopPropagation();
 
       const rect = el.getBoundingClientRect();
-      // Cursor position relative to the container
-      const cursorX = e.clientX - rect.left;
-      const cursorY = e.clientY - rect.top;
-
-      const ZOOM_SPEED = 0.0015;
-      const delta = -e.deltaY * ZOOM_SPEED;
-
+      const cW = rect.width;
+      const cH = rect.height;
       const prevZoom = zoomRef.current;
       const prevPan  = panRef.current;
 
-      // Clamp new zoom
-      const rawZoom = prevZoom + delta * prevZoom;
-      const newZoom = Math.round(Math.min(3, Math.max(0.15, rawZoom)) * 1000) / 1000;
+      if (e.ctrlKey || e.metaKey) {
+        // Zoom
+        const cursorX = e.clientX - rect.left;
+        const cursorY = e.clientY - rect.top;
+        const ZOOM_SPEED = 0.0015;
+        const delta = -e.deltaY * ZOOM_SPEED;
+        const rawZoom = prevZoom + delta * prevZoom;
+        const newZoom = Math.round(Math.min(3, Math.max(0.15, rawZoom)) * 1000) / 1000;
 
-      // Canvas point currently under the cursor
-      const canvasX = (cursorX - prevPan.x) / prevZoom;
-      const canvasY = (cursorY - prevPan.y) / prevZoom;
+        const canvasX = (cursorX - prevPan.x) / prevZoom;
+        const canvasY = (cursorY - prevPan.y) / prevZoom;
+        let newPanX = cursorX - canvasX * newZoom;
+        let newPanY = cursorY - canvasY * newZoom;
 
-      // New pan so the same canvas point stays under the cursor
-      let newPanX = cursorX - canvasX * newZoom;
-      let newPanY = cursorY - canvasY * newZoom;
+        const scaledW = CANVAS_SIZE * newZoom;
+        const scaledH = CANVAS_SIZE * newZoom;
+        newPanX = scaledW < cW ? (cW - scaledW) / 2 : Math.min(0, Math.max(cW - scaledW, newPanX));
+        newPanY = scaledH < cH ? (cH - scaledH) / 2 : Math.min(0, Math.max(cH - scaledH, newPanY));
 
-      // Clamp pan so the canvas never shows empty space outside its bounds.
-      // The scaled canvas is CANVAS_SIZE*newZoom wide/tall.
-      const scaledW = CANVAS_SIZE * newZoom;
-      const scaledH = CANVAS_SIZE * newZoom;
-      const cW = rect.width;
-      const cH = rect.height;
-      // If the scaled canvas is smaller than the container, centre it;
-      // otherwise clamp so neither edge passes the container edge.
-      newPanX = scaledW < cW ? (cW - scaledW) / 2 : Math.min(0, Math.max(cW - scaledW, newPanX));
-      newPanY = scaledH < cH ? (cH - scaledH) / 2 : Math.min(0, Math.max(cH - scaledH, newPanY));
+        zoomRef.current = newZoom;
+        panRef.current  = { x: newPanX, y: newPanY };
+        setZoom(newZoom);
+        setPan({ x: newPanX, y: newPanY });
+      } else {
+        // Pan
+        let newPanX = prevPan.x - e.deltaX;
+        let newPanY = prevPan.y - e.deltaY;
 
-      zoomRef.current = newZoom;
-      panRef.current  = { x: newPanX, y: newPanY };
-      setZoom(newZoom);
-      setPan({ x: newPanX, y: newPanY });
+        const scaledW = CANVAS_SIZE * prevZoom;
+        const scaledH = CANVAS_SIZE * prevZoom;
+        newPanX = scaledW < cW ? (cW - scaledW) / 2 : Math.min(0, Math.max(cW - scaledW, newPanX));
+        newPanY = scaledH < cH ? (cH - scaledH) / 2 : Math.min(0, Math.max(cH - scaledH, newPanY));
+
+        panRef.current = { x: newPanX, y: newPanY };
+        setPan({ x: newPanX, y: newPanY });
+      }
     };
     el.addEventListener("wheel", handleWheel, { passive: false });
     return () => el.removeEventListener("wheel", handleWheel);
@@ -276,6 +302,11 @@ const Board = () => {
   };
 
   const handleMouseDown = (e) => {
+    if (e.button === 1 || spaceHeld || tool === "hand") {
+      e.preventDefault();
+      setDragPan({ startX: e.clientX, startY: e.clientY, initialPanX: pan.x, initialPanY: pan.y });
+      return;
+    }
     if (e.button !== 0) return;
     const { mx, my } = toCanvas(e.clientX, e.clientY);
     if (tool === "draw") { setIsDrawing(true); setCurrentPath([{ x: mx, y: my }]); return; }
@@ -294,6 +325,27 @@ const Board = () => {
   };
 
   const handleMouseMove = (e) => {
+    if (dragPan) {
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const cW = rect.width;
+      const cH = rect.height;
+      const dx = e.clientX - dragPan.startX;
+      const dy = e.clientY - dragPan.startY;
+
+      let newPanX = dragPan.initialPanX + dx;
+      let newPanY = dragPan.initialPanY + dy;
+
+      const scaledW = CANVAS_SIZE * zoomRef.current;
+      const scaledH = CANVAS_SIZE * zoomRef.current;
+      newPanX = scaledW < cW ? (cW - scaledW) / 2 : Math.min(0, Math.max(cW - scaledW, newPanX));
+      newPanY = scaledH < cH ? (cH - scaledH) / 2 : Math.min(0, Math.max(cH - scaledH, newPanY));
+
+      panRef.current = { x: newPanX, y: newPanY };
+      setPan({ x: newPanX, y: newPanY });
+      return;
+    }
     const { mx, my } = toCanvas(e.clientX, e.clientY);
     if (isDrawing && tool === "draw") { setCurrentPath(prev => [...prev, { x: mx, y: my }]); return; }
     if (isDrawing && tool === "eraser") {
@@ -324,6 +376,10 @@ const Board = () => {
   };
 
   const handleMouseUp = () => {
+    if (dragPan) {
+      setDragPan(null);
+      return;
+    }
     if (tool === "draw" && isDrawing) {
       setIsDrawing(false);
       if (currentPath.length > 1) {
@@ -470,6 +526,7 @@ const Board = () => {
             {/* TOOLS */}
             <div className={`flex p-0.5 rounded-xl ${dm ? "bg-slate-700/60" : "bg-slate-100"}`}>
               <ToolBtn icon={<MousePointer2 size={16} />} onClick={() => setTool("select")} label="Select" active={tool === "select"} dark={dm} />
+              <ToolBtn icon={<Hand size={16} />} onClick={() => setTool("hand")} label="Pan Board" active={tool === "hand"} dark={dm} />
               <ToolBtn icon={<PenTool size={16} />} onClick={() => setTool("draw")} label="Draw" active={tool === "draw"} dark={dm} />
               <ToolBtn icon={<Eraser size={16} />} onClick={() => setTool("eraser")} label="Eraser" active={tool === "eraser"} dark={dm} activeColor="text-rose-500" />
             </div>
@@ -642,7 +699,7 @@ const Board = () => {
       {/* ── CANVAS AREA ── */}
       <div className="flex-1 overflow-hidden relative"
         ref={containerRef}
-        style={{ cursor: tool === "draw" ? "crosshair" : tool === "eraser" ? "cell" : "default" }}
+        style={{ cursor: dragPan ? "grabbing" : (tool === "hand" || spaceHeld) ? "grab" : tool === "draw" ? "crosshair" : tool === "eraser" ? "cell" : "default" }}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseDown={handleMouseDown}
