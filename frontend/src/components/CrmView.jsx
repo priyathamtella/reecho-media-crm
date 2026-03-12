@@ -92,7 +92,10 @@ export default function CrmView({ currentPage, setCurrentPage }) {
       ]);
       setClients(rc.data || []);
       setTasks(rt.data || []);
-      setTeam(rtm.data || []);
+      // Deduplicate team members by name (in case DB has duplicate records)
+      const rawTeam = rtm.data || [];
+      const seenNames = new Set();
+      setTeam(rawTeam.filter(m => { if (seenNames.has(m.name)) return false; seenNames.add(m.name); return true; }));
       setCalEvents(rce.data || []);
       setInvoices(ri.data || []);
     } catch (e) { console.error(e); }
@@ -466,7 +469,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                             <div className="task-due" style={{color:status==="Done"?"var(--accent3)":"",fontSize:"11px"}}>{status==="Done"?"✓ Done":task.due_date||"—"}</div>
                             {/* Avatar stack for multiple assignees */}
                             <div style={{display:"flex",alignItems:"center"}}>
-                              {task.assignees ? task.assignees.split(",").filter(Boolean).map((name,i) => {
+                              {task.assignees ? [...new Set(task.assignees.split(",").map(s=>s.trim()).filter(Boolean))].map((name,i) => {
                                 const mem = team.find(m=>m.name===name.trim()||m.initials===name.trim());
                                 return (
                                   <div key={i} className={`avatar ${mem?.color||"av-purple"}`}
@@ -921,10 +924,21 @@ export default function CrmView({ currentPage, setCurrentPage }) {
             <Field label="Assign Members">
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px",maxHeight:"160px",overflowY:"auto",padding:"2px"}}>
                 {team.length===0 && <div style={{fontSize:"12px",color:"var(--muted)",gridColumn:"1/-1"}}>No team members yet</div>}
-                {team.map(m => {
+                {/* Build a unique team list (by lowercase name) to avoid duplicate checkboxes */}
+                {(() => {
+                  const seen = new Set();
+                  return team.filter(m => {
+                    const key = m.name.trim().toLowerCase();
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                  });
+                })().map(m => {
                   const currentVal = editTask ? editTask.assignees : fTask.assignees;
-                  const names = (currentVal||"").split(",").map(s=>s.trim()).filter(Boolean);
-                  const checked = names.includes(m.name);
+                  // Split, trim, deduplicate (case-insensitive) existing assignee names
+                  const rawNames = (currentVal||"").split(",").map(s=>s.trim()).filter(Boolean);
+                  // Use canonical m.name when checking — case-insensitive match
+                  const checked = rawNames.some(n => n.toLowerCase() === m.name.trim().toLowerCase());
                   return (
                     <label key={m.ID}
                       style={{display:"flex",alignItems:"center",gap:"8px",padding:"7px 10px",borderRadius:"8px",cursor:"pointer",
@@ -933,9 +947,20 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                     >
                       <input type="checkbox" checked={checked} style={{display:"none"}}
                         onChange={() => {
-                          const updated = checked
-                            ? names.filter(n=>n!==m.name).join(",")
-                            : [...names, m.name].join(",");
+                          let updated;
+                          if (checked) {
+                            // Remove ALL case variants of this member's name
+                            updated = rawNames
+                              .filter(n => n.toLowerCase() !== m.name.trim().toLowerCase())
+                              .join(",");
+                          } else {
+                            // Add, using Set+lowercase-dedup so it's impossible to add twice
+                            const withNew = [...rawNames, m.name.trim()];
+                            const seen2 = new Set();
+                            updated = withNew
+                              .filter(n => { const k=n.toLowerCase(); if(seen2.has(k)) return false; seen2.add(k); return true; })
+                              .join(",");
+                          }
                           editTask ? setEditTask({...editTask,assignees:updated}) : setFTask({...fTask,assignees:updated});
                         }}
                       />
@@ -951,10 +976,14 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                   );
                 })}
               </div>
-              {/* Show selected names */}
+              {/* Show selected names — deduplicated */}
               {(() => {
                 const val = editTask ? editTask.assignees : fTask.assignees;
-                const names = (val||"").split(",").filter(Boolean);
+                const seen3 = new Set();
+                const names = (val||"").split(",").map(s=>s.trim()).filter(s => {
+                  if(!s) return false;
+                  const k=s.toLowerCase(); if(seen3.has(k)) return false; seen3.add(k); return true;
+                });
                 return names.length>0 ? (
                   <div style={{marginTop:"8px",fontSize:"11px",color:"var(--muted)"}}>
                     Assigned to: <span style={{color:"var(--accent)",fontWeight:"600"}}>{names.join(", ")}</span>
