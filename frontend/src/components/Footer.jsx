@@ -11,7 +11,9 @@ const Footer = () => {
            <p className="text-lg font-medium leading-relaxed max-w-sm mb-12 text-[#F4F4FA]/90">
              A creative agency specializing in branding, web development, motion graphics, and art direction to bring ideas to life.
            </p>
-           <a href="#" className="border border-[#F4F4FA]/50 rounded-full p-3 w-fit hover:bg-[#C4B5FD] hover:text-[#0F172A] hover:border-[#C4B5FD] transition-colors"><Instagram size={24} /></a>
+           <a href="https://www.instagram.com/reecho_media/" target="_blank" rel="noopener noreferrer" className="border border-[#F4F4FA]/50 rounded-full p-3 w-fit hover:bg-[#C4B5FD] hover:text-[#0F172A] hover:border-[#C4B5FD] transition-colors">
+             <Instagram size={24} />
+           </a>
          </div>
 
          <div className="md:col-span-3 flex flex-col gap-4 text-base font-bold uppercase tracking-wider">
