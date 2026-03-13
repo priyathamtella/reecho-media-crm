@@ -207,9 +207,6 @@ const Login = () => {
               Sign In to Workspace
             </motion.button>
 
-            <p className="mt-8 text-center text-slate-500 dark:text-slate-400 text-sm font-medium">
-              New to the team? <Link to="/register" className="text-indigo-600 dark:text-indigo-400 font-bold hover:text-indigo-500 transition-colors">Create an account</Link>
-            </p>
           </form>
         </motion.div>
       </div>
