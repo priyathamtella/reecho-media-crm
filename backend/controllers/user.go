@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"reecho_media_crm/auth"
 	"reecho_media_crm/database"
 	"reecho_media_crm/models"
@@ -72,4 +73,35 @@ func Login(c *fiber.Ctx) error {
 			"role": user.Role,
 		},
 	})
+}
+
+func ChangePassword(c *fiber.Ctx) error {
+	var input struct {
+		CurrentPassword string `json:"currentPassword"`
+		NewPassword     string `json:"newPassword"`
+	}
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
+	}
+
+	emailRaw := c.Locals("email")
+	if emailRaw == nil {
+		return c.Status(401).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+	email := fmt.Sprintf("%v", emailRaw)
+
+	var user models.User
+	if err := database.DB.Where("email = ?", email).First(&user).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "User not found"})
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.CurrentPassword)); err != nil {
+		return c.Status(401).JSON(fiber.Map{"error": "Incorrect current password"})
+	}
+
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(input.NewPassword), 10)
+	user.Password = string(hashedPassword)
+	database.DB.Save(&user)
+
+	return c.JSON(fiber.Map{"message": "Password updated successfully"})
 }

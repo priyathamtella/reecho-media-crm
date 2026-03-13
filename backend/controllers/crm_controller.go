@@ -210,6 +210,7 @@ func GetTasks(c *fiber.Ctx) error {
 		if err := database.DB.Where("email = ?", email).First(&client).Error; err != nil {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Client profile not found"})
 		}
+		// Clients see all tasks for their own name
 		database.DB.Where("user_id = ? AND client = ?", adminID, client.Name).Find(&tasks)
 	} else if role == "member" {
 		var member models.TeamMember
@@ -227,6 +228,11 @@ func GetTasks(c *fiber.Ctx) error {
 }
 
 func CreateTask(c *fiber.Ctx) error {
+	_, role, _ := getAdminContext(c)
+	if role != "admin" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can create tasks"})
+	}
+
 	task := new(models.Task)
 	if err := c.BodyParser(task); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
@@ -272,6 +278,20 @@ func UpdateTask(c *fiber.Ctx) error {
 		if err := c.BodyParser(&su); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 		}
+		
+		// Restriction: Members can only move to "To Do" or "In Progress" or "In Review"
+		if su.Status != "To Do" && su.Status != "In Progress" && su.Status != "In Review" {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Members can only set status to 'To Do', 'In Progress', or 'In Review'."})
+		}
+		
+		// If moving to In Review, notify admin
+		if su.Status == "In Review" && task.Status != "In Review" {
+			subject := fmt.Sprintf("🧐 Task Review Request: %s", task.Title)
+			body := fmt.Sprintf("Hey Admin,\n\nTeam member %s has completed a task and requested a review:\n\n📌 Task: %s\n🏢 Client: %s\n\nPlease login to the CRM to approve and mark as Done.\n\n— Reecho Media CRM Auto-Notify", member.Name, task.Title, task.Client)
+			// Assuming admin email is known or fetched. For now using a placeholder or common admin email.
+			go sendEmail("priyathamtella@gmail.com", subject, body)
+		}
+		
 		task.Status = su.Status
 		database.DB.Save(&task)
 		return c.JSON(task)
@@ -304,11 +324,13 @@ func GetInvoices(c *fiber.Ctx) error {
 	if role == "client" {
 		var client models.Client
 		database.DB.Where("email = ?", email).First(&client)
-		database.DB.Where("user_id = ? AND client = ?", adminID, client.Name).Find(&invoices)
+		// Clients see 'client' type invoices addressed to them
+		database.DB.Where("user_id = ? AND client = ? AND type = ?", adminID, client.Name, "client").Find(&invoices)
 	} else if role == "member" {
-		// Members don't see workspace invoices by default
-		invoices = []models.Invoice{}
+		// Members see their own 'payout' requests
+		database.DB.Where("user_id = ? AND sender = ? AND type = ?", adminID, email, "payout").Find(&invoices)
 	} else {
+		// Admin sees all invoices
 		database.DB.Where("user_id = ?", adminID).Find(&invoices)
 	}
 	
@@ -316,12 +338,83 @@ func GetInvoices(c *fiber.Ctx) error {
 }
 
 func CreateInvoice(c *fiber.Ctx) error {
+	adminID, role, email := getAdminContext(c)
 	inv := new(models.Invoice)
 	if err := c.BodyParser(inv); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
 	}
-	inv.UserID = getUserID(c)
+	
+	inv.UserID = adminID
+	inv.Sender = email
+	
+	if role == "member" {
+		inv.Type = "payout"
+		inv.Status = "Pending" // Payouts start as pending
+		// For payouts, 'Client' field stores the member's name
+		var member models.TeamMember
+		database.DB.Where("email = ?", email).First(&member)
+		inv.Client = member.Name
+	} else if role == "admin" {
+		if inv.Type == "" {
+			inv.Type = "client"
+		}
+	} else {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins and members can raise invoices"})
+	}
+
 	database.DB.Create(&inv)
+	return c.JSON(inv)
+}
+
+func UpdateInvoice(c *fiber.Ctx) error {
+	id := c.Params("id")
+	adminID, role, email := getAdminContext(c)
+	
+	var inv models.Invoice
+	if err := database.DB.Where("id = ? AND user_id = ?", id, adminID).First(&inv).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Invoice not found"})
+	}
+
+	// Roles logic:
+	// Clients can only update status to 'Paid' (accept and pay logic)
+	// Members cannot update invoices they didn't create (and they only update to 'Cancelled' maybe)
+	// Admin can update everything
+	
+	type UpdatePayload struct {
+		Status        string `json:"status"`
+		DeclineReason string `json:"decline_reason"`
+	}
+	var up UpdatePayload
+	if err := c.BodyParser(&up); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
+	}
+
+	if role == "client" {
+		if inv.Type == "client" && (up.Status == "Paid" || up.Status == "Declined") {
+			inv.Status = up.Status
+			if up.Status == "Declined" {
+				inv.DeclineReason = up.DeclineReason
+			}
+		} else {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Clients can only mark invoices as Paid or Declined"})
+		}
+	} else if role == "member" {
+		if inv.Sender == email && up.Status == "Cancelled" {
+			inv.Status = "Cancelled"
+		} else {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Members can only cancel their own payout requests"})
+		}
+	} else {
+		// Admin
+		if up.Status != "" {
+			inv.Status = up.Status
+		}
+		if up.DeclineReason != "" {
+			inv.DeclineReason = up.DeclineReason
+		}
+	}
+
+	database.DB.Save(&inv)
 	return c.JSON(inv)
 }
 
@@ -376,8 +469,18 @@ func CreateTeamMember(c *fiber.Ctx) error {
 func DeleteTeamMember(c *fiber.Ctx) error {
 	id := c.Params("id")
 	userID := getUserID(c)
-	database.DB.Where("id = ? AND user_id = ?", id, userID).Delete(&models.TeamMember{})
-	return c.JSON(fiber.Map{"message": "Team member removed"})
+	
+	var member models.TeamMember
+	if err := database.DB.Where("id = ? AND user_id = ?", id, userID).First(&member).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Member not found"})
+	}
+
+	// Delete user first
+	database.DB.Where("email = ?", member.Email).Delete(&models.User{})
+	// Then delete member
+	database.DB.Delete(&member)
+	
+	return c.JSON(fiber.Map{"message": "Team member removed and credentials invalidated"})
 }
 
 func UpdateTeamMember(c *fiber.Ctx) error {

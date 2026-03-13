@@ -10,6 +10,11 @@ import (
 
 // CreateDocument: Create a new rich-text document
 func CreateDocument(c *fiber.Ctx) error {
+	_, role, _ := getAdminContext(c)
+	if role != "admin" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can create documents"})
+	}
+
 	userIDStr, ok := c.Locals("userID").(string)
 	if !ok {
 		return c.Status(401).JSON(fiber.Map{"error": "Unauthorized"})

@@ -15,6 +15,7 @@ func SetupRoutes(app *fiber.App) {
 
 	// Protected routes (Requires JWT)
 	api := app.Group("/api", auth.AuthRequired)
+	api.Post("/change-password", controllers.ChangePassword)
 
 	// Board Endpoints
 	api.Get("/boards", controllers.GetAllBoards)        // See all boards
@@ -43,6 +44,7 @@ func SetupRoutes(app *fiber.App) {
 
 	api.Get("/invoices", controllers.GetInvoices)
 	api.Post("/invoices", controllers.CreateInvoice)
+	api.Put("/invoices/:id", controllers.UpdateInvoice)
 
 	api.Get("/team", controllers.GetTeamMembers)
 	api.Post("/team", controllers.CreateTeamMember)
