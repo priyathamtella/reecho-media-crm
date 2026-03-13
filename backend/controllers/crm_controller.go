@@ -8,6 +8,7 @@ import (
 	"os"
 	"reecho_media_crm/database"
 	"reecho_media_crm/models"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/bcrypt"
@@ -490,10 +491,49 @@ func UpdateTeamMember(c *fiber.Ctx) error {
 	if err := database.DB.Where("id = ? AND user_id = ?", id, userID).First(&member).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Member not found"})
 	}
-	if err := c.BodyParser(&member); err != nil {
+
+	oldEmail := member.Email
+
+	type UpdatePayload struct {
+		Name       string `json:"name"`
+		Email      string `json:"email"`
+		Role       string `json:"role"`
+		WorkingOn  string `json:"working_on"`
+		Color      string `json:"color"`
+		ClientsNum int    `json:"clients_num"`
+		Password   string `json:"password"` // New optional field
+	}
+	var up UpdatePayload
+	if err := c.BodyParser(&up); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
 	}
-	database.DB.Save(&member)
+
+	// Update member fields
+	member.Name = up.Name
+	member.Email = up.Email
+	member.Role = up.Role
+	member.WorkingOn = up.WorkingOn
+	member.Color = up.Color
+	member.ClientsNum = up.ClientsNum
+	member.Initials = strings.ToUpper(up.Name[:2]) // Simple initials update
+	
+	if err := database.DB.Save(&member).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to update member"})
+	}
+
+	// Sync with User table
+	var user models.User
+	if err := database.DB.Where("email = ?", oldEmail).First(&user).Error; err == nil {
+		user.Email = up.Email
+		user.Name = up.Name
+		user.Role = "member"
+		if up.Password != "" {
+			hashed, _ := bcrypt.GenerateFromPassword([]byte(up.Password), 10)
+			user.Password = string(hashed)
+		}
+		database.DB.Save(&user)
+	}
+
 	return c.JSON(member)
 }
 

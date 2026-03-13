@@ -34,8 +34,8 @@ func main() {
 	db.Exec("DELETE FROM documents")
 
 	// Create new admin
-    email := "admin@reechomedia.com"
-    password := "Admin@2024" // Clear password for the user
+    email := "priyathamtella@gmail.com"
+    password := "reechomedia" // Clear password for the user
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), 10)
 
 	admin := models.User{

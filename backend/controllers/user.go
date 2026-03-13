@@ -99,9 +99,14 @@ func ChangePassword(c *fiber.Ctx) error {
 		return c.Status(401).JSON(fiber.Map{"error": "Incorrect current password"})
 	}
 
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(input.NewPassword), 10)
-	user.Password = string(hashedPassword)
-	database.DB.Save(&user)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), 10)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to hash password"})
+	}
+	
+	if err := database.DB.Model(&user).Update("password", string(hashedPassword)).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to update database"})
+	}
 
 	return c.JSON(fiber.Map{"message": "Password updated successfully"})
 }

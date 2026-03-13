@@ -175,7 +175,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
     } catch (err) {
       alert(err.response?.data?.error || "Failed to update password");
     } finally {
-      setPassLoading(true);
+      setPassLoading(false);
     }
   };
 
@@ -1346,9 +1346,12 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                 {["av-purple","av-blue","av-pink","av-green","av-orange"].map(c=><option key={c} value={c}>{c.replace("av-","")}</option>)}
               </select>
             </Field>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
+             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
               <Field label="Clients served">
                 <input style={inputSt} type="number" min="0" value={editMember.clients_num||0} onChange={e=>setEditMember({...editMember,clients_num:parseInt(e.target.value)||0})} />
+              </Field>
+              <Field label="Reset Password (Optional)">
+                <input style={inputSt} type="password" placeholder="New password" onChange={e=>setEditMember({...editMember,password:e.target.value})} />
               </Field>
             </div>
             <button type="submit" className="btn btn-primary" style={{width:"100%",padding:"12px",marginTop:"4px",borderRadius:"8px"}}>Save Changes</button>
