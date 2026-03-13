@@ -152,12 +152,12 @@ const AppLayout = ({ children }) => {
                     <div>
                         <div className={`text-[10px] font-black uppercase tracking-widest px-2 mt-4 mb-2 ${isDark ? "text-slate-500" : "text-slate-400"}`}>Agency Workspace</div>
                         {[
-                            { page:"overview",  label:"Overview",         Icon:LayoutGrid, roles: ["admin", "member"]   },
-                            { page:"tasks",     label:"Task Board",       Icon:CheckSquare, roles: ["admin", "member"]  },
-                            { page:"calendar",  label:"Content Calendar", Icon:Calendar, roles: ["admin", "member"]     },
+                            { page:"overview",  label:"Overview",         Icon:LayoutGrid, roles: ["admin", "member", "client"] },
+                            { page:"tasks",     label:"Task Board",       Icon:CheckSquare, roles: ["admin", "member", "client"] },
+                            { page:"calendar",  label:"Content Calendar", Icon:Calendar, roles: ["admin", "member", "client"] },
                             { page:"team",      label:"Team Members",     Icon:Users, roles: ["admin"]        },
                             { page:"clients",   label:"Clients",          Icon:Briefcase, roles: ["admin"]    },
-                            { page:"payments",  label:"Payments",         Icon:CreditCard, roles: ["admin", "member"]   },
+                            { page:"payments",  label:"Payments",         Icon:CreditCard, roles: ["admin", "member", "client"] },
                             { page:"portal",    label:"Client Hub",       Icon:ExternalLink, roles: ["admin", "client"] },
                         ]
                         .filter(item => item.roles.includes(userRole))

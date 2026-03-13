@@ -11,6 +11,11 @@ import (
 
 // CreateBoard: Initializes a new board for the authenticated user
 func CreateBoard(c *fiber.Ctx) error {
+	_, role, _ := getAdminContext(c)
+	if role != "admin" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can create boards"})
+	}
+	
 	// Extract userID from middleware
 	userIDStr, ok := c.Locals("userID").(string)
 	if !ok {

@@ -78,6 +78,16 @@ export default function CrmView({ currentPage, setCurrentPage }) {
   const [fTeam,   setFTeam]   = useState({ name:"", email:"", role:"", initials:"", color:"av-blue", working_on:"", tasks_num:"0", tasks_done:"0", clients_num:"0" });
   const [fCal,    setFCal]    = useState({ title:"", client:"", platform:"instagram", date:"" });
   const [fInv,    setFInv]    = useState({ invoice_id:"", client:"", service:"", amount:"", date:"", status:"Pending" });
+  
+  // Change Password state
+  const [showPassModal, setShowPassModal] = useState(false);
+  const [passForm, setPassForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [passLoading, setPassLoading] = useState(false);
+  
+  // Payment & Decline Modals
+  const [declineModal, setDeclineModal] = useState(null); // { id, type, reason }
+  const [payModal, setPayModal] = useState(null); // { id, amount, step: 'init' | 'processing' | 'success' }
+  const [payTimer, setPayTimer] = useState(60);
 
   const auth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } });
 
@@ -108,6 +118,17 @@ export default function CrmView({ currentPage, setCurrentPage }) {
     }
   }, [clients, userRole, currentPage, selectedClient]);
 
+  useEffect(() => {
+    let interval;
+    if (payModal && payModal.step === 'processing' && payTimer > 0) {
+      interval = setInterval(() => setPayTimer(t => t - 1), 1000);
+    } else if (payTimer === 0 && payModal && payModal.step === 'processing') {
+      setPayModal({ ...payModal, step: 'success' });
+      updateInvoice(payModal.id, { status: "Paid" });
+    }
+    return () => clearInterval(interval);
+  }, [payModal, payTimer]);
+
   // Close notification panel when clicking outside
   useEffect(() => {
     if (!showNotif) return;
@@ -129,6 +150,34 @@ export default function CrmView({ currentPage, setCurrentPage }) {
   const deleteTeamMember = async (id) => {
     try { await axios.delete(`${API}/team/${id}`, auth()); fetchAll(); } catch(e){console.error(e);}
   };
+  const createInvoice = async (data) => {
+    try { await axios.post(`${API}/invoices`, data, auth()); fetchAll(); } catch(e){console.error(e);}
+  };
+  const updateInvoice = async (id, data) => {
+    try { await axios.put(`${API}/invoices/${id}`, data, auth()); fetchAll(); } catch(e){console.error(e);}
+  };
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    if (passForm.newPassword !== passForm.confirmPassword) {
+      alert("Passwords do not match!");
+      return;
+    }
+    setPassLoading(true);
+    try {
+      await axios.post(`${API}/change-password`, {
+        currentPassword: passForm.currentPassword,
+        newPassword: passForm.newPassword
+      }, auth());
+      alert("Password updated successfully!");
+      setShowPassModal(false);
+      setPassForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    } catch (err) {
+      alert(err.response?.data?.error || "Failed to update password");
+    } finally {
+      setPassLoading(true);
+    }
+  };
 
   /* ─── Drag & Drop ───────────────────────────── */
   const onDragStart = (e, task) => {
@@ -139,6 +188,14 @@ export default function CrmView({ currentPage, setCurrentPage }) {
     e.preventDefault();
     setDragOver(null);
     if (dragTask.current && dragTask.current.status !== status) {
+      if (userRole === "client") {
+        alert("Board view is read-only for clients. Please contact your account manager for status updates.");
+        return;
+      }
+      if (userRole === "member" && status !== "To Do" && status !== "In Progress" && status !== "In Review") {
+        alert("Members can only move tasks to 'To Do', 'In Progress', or 'In Review'. Admin review is required for completion.");
+        return;
+      }
       await updateTask({ ...dragTask.current, status });
     }
     dragTask.current = null;
@@ -301,6 +358,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
               <button className={`vt-btn${taskView==="list"?" active":""}`} onClick={()=>setTaskView("list")}>List</button>
             </div>
           )}
+          <button className="btn btn-ghost" style={{fontSize:"11px", marginLeft:"20px", padding:"4px 10px", height:"30px"}} onClick={() => setShowPassModal(true)}>🔑 Change Password</button>
         </div>
         <div className="topbar-right">
           {userRole === "admin" && currentPage === "clients"  && <button className="btn btn-ghost" onClick={()=>setShowClient(true)}>+ New Client</button>}
@@ -499,11 +557,26 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                               }) : null}
                             </div>
                           </div>
-                          {/* Status selector */}
-                          <select value={task.status} onChange={e=>changeStatus(task,e.target.value)}
-                            style={{marginTop:"8px",width:"100%",padding:"4px 8px",borderRadius:"6px",border:"1px solid var(--border)",background:"var(--surface)",color:"var(--text)",fontSize:"11px",cursor:"pointer"}}>
-                            {STATUSES.map(s=><option key={s} value={s}>{s}</option>)}
-                          </select>
+                          {/* Role-aware Status selector */}
+                          {userRole === "admin" && (
+                            <select value={task.status} onChange={e=>changeStatus(task,e.target.value)}
+                              style={{marginTop:"8px",width:"100%",padding:"4px 8px",borderRadius:"6px",border:"1px solid var(--border)",background:"var(--surface)",color:"var(--text)",fontSize:"11px",cursor:"pointer"}}>
+                              {STATUSES.map(s=><option key={s} value={s}>{s}</option>)}
+                            </select>
+                          )}
+                          {userRole === "member" && (
+                            <select value={task.status} onChange={e=>changeStatus(task,e.target.value)}
+                              style={{marginTop:"8px",width:"100%",padding:"4px 8px",borderRadius:"6px",border:"1px solid var(--border)",background:"var(--surface)",color:"var(--text)",fontSize:"11px",cursor:"pointer"}}>
+                              <option value="To Do">To Do</option>
+                              <option value="In Progress">In Progress</option>
+                              <option value="In Review">In Review</option>
+                            </select>
+                          )}
+                          {userRole === "client" && (
+                            <div style={{marginTop:"8px", padding:"4px 8px", borderRadius:"6px", border:"1px solid var(--border)", background:"rgba(108,99,255,0.05)", color:"var(--accent)", fontSize:"11px", textAlign:"center", fontWeight:"600"}}>
+                              {task.status}
+                            </div>
+                          )}
                           <div style={{fontSize:"9px",color:"var(--muted)",marginTop:"3px",textAlign:"center"}}>↕ Drag or use dropdown to move</div>
                         </div>
                       ))}
@@ -528,10 +601,21 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                       <div style={{fontSize:"12px"}}>{t.client||"—"}</div>
                       <div><span style={{fontSize:"11px",padding:"2px 8px",borderRadius:"4px",background:`${TAG_COLORS[(t.tag||"content").toLowerCase()]||"#6c63ff"}22`,color:TAG_COLORS[(t.tag||"content").toLowerCase()]||"#6c63ff"}}>{t.tag}</span></div>
                       <div>
-                        <select value={t.status} onChange={e=>changeStatus(t,e.target.value)}
-                          style={{padding:"3px 6px",borderRadius:"6px",border:"1px solid var(--border)",background:"var(--surface)",color:"var(--text)",fontSize:"11px"}}>
-                          {STATUSES.map(s=><option key={s}>{s}</option>)}
-                        </select>
+                        {userRole === "admin" ? (
+                          <select value={t.status} onChange={e=>changeStatus(t,e.target.value)}
+                            style={{padding:"3px 6px",borderRadius:"6px",border:"1px solid var(--border)",background:"var(--surface)",color:"var(--text)",fontSize:"11px"}}>
+                            {STATUSES.map(s=><option key={s}>{s}</option>)}
+                          </select>
+                        ) : userRole === "member" ? (
+                          <select value={t.status} onChange={e=>changeStatus(t,e.target.value)}
+                            style={{padding:"3px 6px",borderRadius:"6px",border:"1px solid var(--border)",background:"var(--surface)",color:"var(--text)",fontSize:"11px"}}>
+                            <option value="To Do">To Do</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="In Review">In Review</option>
+                          </select>
+                        ) : (
+                          <span style={{fontSize:"11px", fontWeight:"600", color:"var(--accent)"}}>{t.status}</span>
+                        )}
                       </div>
                       <div style={{fontSize:"12px"}}>{t.due_date||"—"}</div>
                       <div style={{display:"flex",gap:"6px"}}>
@@ -540,6 +624,16 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                             <button className="btn btn-ghost" style={{fontSize:"11px",padding:"3px 8px"}} onClick={()=>setEditTask({...t})}>Edit</button>
                             <button style={{fontSize:"11px",padding:"3px 8px",background:"rgba(255,101,132,0.1)",color:"var(--accent2)",border:"1px solid rgba(255,101,132,0.2)",borderRadius:"6px",cursor:"pointer"}} onClick={()=>deleteTask(t.ID)}>✕</button>
                           </>
+                        )}
+                        {userRole === "member" && (
+                          <select 
+                            style={{fontSize:"11px", padding:"2px 4px", borderRadius:"4px", border:"1px solid var(--border)", background:"var(--surface)"}}
+                            value={t.status}
+                            onChange={(e) => changeStatus(t, e.target.value)}
+                          >
+                            <option value="To Do">To Do</option>
+                            <option value="In Progress">In Progress</option>
+                          </select>
                         )}
                       </div>
                     </div>
@@ -621,7 +715,14 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                           {eventsOnDay(selectedDay).map(ev=>(
                             <div key={ev.ID} style={{display:"flex",alignItems:"center",gap:"10px",padding:"8px 0",borderBottom:"1px solid var(--border)"}}>
                               <span style={{fontSize:"18px"}}>📱</span>
-                              <div><div style={{fontWeight:"600",fontSize:"13px"}}>{ev.title}</div><div style={{fontSize:"11px",color:PLATFORM_COLORS[ev.platform]||"#a78bfa"}}>{ev.platform} · {ev.client}</div></div>
+                              <div style={{flex:1}}><div style={{fontWeight:"600",fontSize:"13px"}}>{ev.title}</div><div style={{fontSize:"11px",color:PLATFORM_COLORS[ev.platform]||"#a78bfa"}}>{ev.platform} · {ev.client}</div></div>
+                              {userRole === "admin" && (
+                                <button className="btn btn-ghost" style={{padding:"4px 8px", color:"var(--accent2)"}} onClick={async () => {
+                                  if(window.confirm("Remove this post?")) {
+                                    try { await axios.delete(`${API}/calendar/${ev.ID}`, auth()); fetchAll(); } catch(e) { console.error(e); }
+                                  }
+                                }}>✕</button>
+                              )}
                             </div>
                           ))}
                           {tasksOnDay(selectedDay).map(t=>(
@@ -754,7 +855,6 @@ export default function CrmView({ currentPage, setCurrentPage }) {
           </div>
         )}
 
-        {/* ══ PAYMENTS ══ */}
         {currentPage==="payments" && (
           <div className="page-view active">
             <div className="stats-grid" style={{gridTemplateColumns:"repeat(3,1fr)",marginBottom:"24px"}}>
@@ -762,26 +862,155 @@ export default function CrmView({ currentPage, setCurrentPage }) {
               <div className="stat-card s4"><div className="stat-label">Pending</div><div className="stat-value" style={{color:"var(--accent4)"}}>₹{pending.toLocaleString("en-IN")}</div><div className="stat-change">{invoices.filter(i=>i.status==="Pending").length} due</div></div>
               <div className="stat-card s2"><div className="stat-label">Overdue</div><div className="stat-value" style={{color:"var(--accent2)"}}>₹{overdue.toLocaleString("en-IN")}</div><div className="stat-change" style={{color:"var(--accent2)"}}>{invoices.filter(i=>i.status==="Overdue").length} overdue</div></div>
             </div>
-            <div className="card-main">
-              <div className="card-header">
-                <div className="card-title">Invoice History</div>
-                {userRole === "admin" && <button className="btn btn-primary" style={{fontSize:"12px",padding:"6px 14px"}} onClick={()=>setShowInv(true)}>+ Create Invoice</button>}
-              </div>
-              <div className="invoice-list">
-                <div className="invoice-row header"><div>Invoice</div><div>Client</div><div>Service</div><div>Amount</div><div>Status</div><div>Date</div></div>
-                {invoices.map(inv=>(
-                  <div className="invoice-row" key={inv.ID}>
-                    <div style={{fontWeight:"600",fontSize:"12px"}}>{inv.invoice_id||`#INV-${inv.ID}`}</div>
-                    <div style={{fontSize:"12px"}}>{inv.client}</div>
-                    <div style={{fontSize:"12px"}}>{inv.service}</div>
-                    <div style={{fontFamily:"'Clash Display'",fontWeight:"600"}}>₹{(inv.amount||0).toLocaleString("en-IN")}</div>
-                    <div><span className={`status-badge ${inv.status==="Paid"?"status-active":inv.status==="Overdue"?"status-review":"status-paused"}`}><span className="status-dot"></span>{inv.status}</span></div>
-                    <div style={{fontSize:"11px",color:"var(--muted)"}}>{inv.date}</div>
+
+            {userRole === "admin" && (
+              <div style={{display:"flex", flexDirection:"column", gap:"32px"}}>
+                {/* Client Invoices Table */}
+                <div className="card-main">
+                  <div className="card-header">
+                    <div className="card-title">💼 Client Billing</div>
+                    <button className="btn btn-primary" style={{fontSize:"12px",padding:"6px 14px"}} onClick={()=>setShowInv(true)}>+ New Client Invoice</button>
                   </div>
-                ))}
-                {invoices.length===0&&<div style={{padding:"60px",textAlign:"center",color:"var(--muted)"}}>No invoices yet. <span style={{color:"var(--accent)",cursor:"pointer"}} onClick={()=>setShowInv(true)}>Create one →</span></div>}
+                  <div className="invoice-list">
+                    <div className="invoice-row header"><div>ID</div><div>Client</div><div>Service</div><div>Amount</div><div>Status</div><div>Date</div></div>
+                    {invoices.filter(i => i.type === "client").map(inv=>(
+                      <div className="invoice-row" key={inv.ID}>
+                        <div style={{fontWeight:"600",fontSize:"12px"}}>{inv.invoice_id||`#INV-${inv.ID}`}</div>
+                        <div style={{fontSize:"12px"}}>{inv.client}</div>
+                        <div style={{fontSize:"12px"}}>{inv.service}</div>
+                        <div style={{fontFamily:"'Clash Display'",fontWeight:"600"}}>₹{(inv.amount||0).toLocaleString("en-IN")}</div>
+                        <div>
+                          <span className={`status-badge ${inv.status==="Paid"?"status-active":inv.status==="Overdue"?"status-review":inv.status==="Declined"?"status-review":"status-paused"}`}>
+                            <span className="status-dot"></span>{inv.status}
+                          </span>
+                          {inv.status === "Declined" && <div style={{fontSize:"10px", color:"var(--accent2)", marginTop:"4px"}}>Reason: {inv.decline_reason}</div>}
+                        </div>
+                        <div style={{fontSize:"11px",color:"var(--muted)"}}>{inv.date}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Member Payouts Table */}
+                <div className="card-main">
+                  <div className="card-header">
+                    <div className="card-title">👥 Member Payout Requests</div>
+                  </div>
+                  <div className="invoice-list">
+                    <div className="invoice-row header" style={{gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr 1fr 150px"}}><div>ID</div><div>Member</div><div>Service</div><div>Amount</div><div>Status</div><div>Date</div><div>Actions</div></div>
+                    {invoices.filter(i => i.type === "payout").map(inv=>(
+                      <div className="invoice-row" key={inv.ID} style={{gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr 1fr 150px"}}>
+                        <div style={{fontWeight:"600",fontSize:"12px"}}>{inv.invoice_id}</div>
+                        <div style={{fontSize:"12px"}}>{inv.client}</div>
+                        <div style={{fontSize:"12px"}}>{inv.service}</div>
+                        <div style={{fontFamily:"'Clash Display'",fontWeight:"600"}}>₹{(inv.amount||0).toLocaleString("en-IN")}</div>
+                        <div>
+                          <span className={`status-badge ${inv.status==="Paid"?"status-active":inv.status==="Declined"?"status-review":"status-paused"}`}>
+                            <span className="status-dot"></span>{inv.status}
+                          </span>
+                          {inv.status === "Declined" && <div style={{fontSize:"10px", color:"var(--accent2)", marginTop:"4px"}}>Reason: {inv.decline_reason}</div>}
+                        </div>
+                        <div style={{fontSize:"11px",color:"var(--muted)"}}>{inv.date}</div>
+                        <div style={{display:"flex", gap:"8px"}}>
+                          {inv.status === "Pending" && (
+                            <>
+                              <button className="btn btn-primary" style={{padding:"4px 8px", fontSize:"10px"}} onClick={() => { setPayModal({ id: inv.ID, amount: inv.amount, step: 'init' }); setPayTimer(600); }}>Pay</button>
+                              <button className="btn btn-ghost" style={{padding:"4px 8px", fontSize:"10px", color:"var(--accent2)"}} onClick={() => setDeclineModal({ id: inv.ID, type: "payout" })}>Decline</button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {invoices.filter(i => i.type === "payout").length === 0 && <div style={{padding:"40px", textAlign:"center", color:"var(--muted)"}}>No payout requests.</div>}
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
+
+            {userRole === "member" && (
+              <div style={{display:"grid", gridTemplateColumns:"320px 1fr", gap:"24px"}}>
+                <div className="card-main" style={{padding:"24px"}}>
+                  <div style={{fontSize:"16px", fontWeight:"700", marginBottom:"16px"}}>Request Payout</div>
+                  <form onSubmit={(e) => {
+                    e.preventDefault();
+                    createInvoice({ 
+                      service: e.target.service.value, 
+                      amount: parseInt(e.target.amount.value), 
+                      date: new Date().toLocaleDateString(),
+                      invoice_id: `PAY-${Math.floor(1000 + Math.random() * 9000)}` 
+                    });
+                    e.target.reset();
+                  }}>
+                    <Field label="Service / Reason">
+                      <input name="service" style={inputSt} placeholder="e.g. Monthly Retainer" required />
+                    </Field>
+                    <Field label="Amount (₹)">
+                      <input name="amount" type="number" style={inputSt} placeholder="5000" required />
+                    </Field>
+                    <button type="submit" className="btn btn-primary" style={{width:"100%", marginTop:"10px"}}>Submit Payout Request</button>
+                  </form>
+                </div>
+                <div className="card-main">
+                  <div className="card-header"><div className="card-title">My Payout History</div></div>
+                  <div className="invoice-list">
+                    <div className="invoice-row header"><div>ID</div><div>Service</div><div>Amount</div><div>Status</div><div>Date</div></div>
+                    {invoices.map(inv=>(
+                      <div className="invoice-row" key={inv.ID}>
+                        <div style={{fontWeight:"600",fontSize:"12px"}}>{inv.invoice_id}</div>
+                        <div style={{fontSize:"12px"}}>{inv.service}</div>
+                        <div style={{fontFamily:"'Clash Display'",fontWeight:"600"}}>₹{(inv.amount||0).toLocaleString("en-IN")}</div>
+                        <div>
+                          <span className={`status-badge ${inv.status==="Paid"?"status-active":inv.status==="Declined"?"status-review":"status-paused"}`}>
+                            <span className="status-dot"></span>{inv.status}
+                          </span>
+                          {inv.status === "Declined" && <div style={{fontSize:"10px", color:"var(--accent2)", marginTop:"4px"}}>Reason: {inv.decline_reason}</div>}
+                        </div>
+                        <div style={{fontSize:"11px",color:"var(--muted)"}}>{inv.date}</div>
+                      </div>
+                    ))}
+                    {invoices.length===0 && <div style={{padding:"40px", textAlign:"center", color:"var(--muted)"}}>No payout requests found.</div>}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {userRole === "client" && (
+              <div className="card-main">
+                <div className="card-header"><div className="card-title">My Invoices</div></div>
+                <div className="invoice-list">
+                  <div className="invoice-row header" style={{gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr 1fr"}}><div>ID</div><div>Service</div><div>Amount</div><div>Status</div><div>Date</div><div>Actions</div></div>
+                  {invoices.map(inv=>(
+                    <div className="invoice-row" key={inv.ID} style={{gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr 1fr"}}>
+                      <div style={{fontWeight:"600",fontSize:"12px"}}>{inv.invoice_id}</div>
+                      <div style={{fontSize:"12px"}}>{inv.service}</div>
+                      <div style={{fontFamily:"'Clash Display'",fontWeight:"600"}}>₹{(inv.amount||0).toLocaleString("en-IN")}</div>
+                      <div>
+                        <span className={`status-badge ${inv.status==="Paid"?"status-active":inv.status==="Declined"?"status-review":"status-paused"}`}>
+                          <span className="status-dot"></span>{inv.status}
+                        </span>
+                        {inv.status === "Declined" && <div style={{fontSize:"10px", color:"var(--accent2)", marginTop:"4px"}}>Reason: {inv.decline_reason}</div>}
+                      </div>
+                      <div style={{fontSize:"11px",color:"var(--muted)"}}>{inv.date}</div>
+                      <div style={{display:"flex", gap:"8px"}}>
+                        {inv.status === "Pending" ? (
+                          <>
+                            <button className="btn btn-primary" style={{padding:"4px 10px", fontSize:"10px"}} onClick={() => { setPayModal({ id: inv.ID, amount: inv.amount, step: 'init' }); setPayTimer(600); }}>
+                              💸 Pay & Accept
+                            </button>
+                            <button className="btn btn-ghost" style={{padding:"4px 10px", fontSize:"10px", color:"var(--accent2)"}} onClick={() => setDeclineModal({ id: inv.ID, type: "client" })}>
+                              Decline
+                            </button>
+                          </>
+                        ) : (
+                          <span style={{fontSize:"10px", color:"var(--accent3)", fontWeight:"700"}}>✓ Completed</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {invoices.length===0 && <div style={{padding:"40px", textAlign:"center", color:"var(--muted)"}}>No invoices found.</div>}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1124,6 +1353,131 @@ export default function CrmView({ currentPage, setCurrentPage }) {
             </div>
             <button type="submit" className="btn btn-primary" style={{width:"100%",padding:"12px",marginTop:"4px",borderRadius:"8px"}}>Save Changes</button>
           </form>
+        </Modal>
+      )}
+
+      {/* ══ CHANGE PASSWORD MODAL ══ */}
+      {showPassModal && (
+        <Modal title="Update Security" onClose={() => setShowPassModal(false)}>
+          <form onSubmit={handlePasswordChange}>
+            <Field label="Current Password">
+              <input 
+                type="password" 
+                style={inputSt} 
+                required 
+                value={passForm.currentPassword} 
+                onChange={e => setPassForm({...passForm, currentPassword: e.target.value})} 
+              />
+            </Field>
+            <Field label="New Password">
+              <input 
+                type="password" 
+                style={inputSt} 
+                required 
+                value={passForm.newPassword} 
+                onChange={e => setPassForm({...passForm, newPassword: e.target.value})} 
+              />
+            </Field>
+            <Field label="Confirm New Password">
+              <input 
+                type="password" 
+                style={inputSt} 
+                required 
+                value={passForm.confirmPassword} 
+                onChange={e => setPassForm({...passForm, confirmPassword: e.target.value})} 
+              />
+            </Field>
+            <button type="submit" className="btn btn-primary" style={{width:"100%", padding:"12px", marginTop:"10px", borderRadius:"10px"}} disabled={passLoading}>
+              {passLoading ? "Updating..." : "Update Password"}
+            </button>
+          </form>
+        </Modal>
+      )}
+
+      {/* ══ DECLINE MODAL ══ */}
+      {declineModal && (
+        <Modal title="Decline Invoice" onClose={() => setDeclineModal(null)}>
+          <div style={{marginBottom:"16px", color:"var(--muted)", fontSize:"13px"}}>
+            Please provide a reason for declining this {declineModal.type === "payout" ? "payout request" : "invoice"}. This will be visible to the {declineModal.type === "payout" ? "team member" : "admin"}.
+          </div>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            updateInvoice(declineModal.id, { status: "Declined", decline_reason: e.target.reason.value });
+            setDeclineModal(null);
+          }}>
+            <Field label="Reason for Declining">
+              <textarea name="reason" style={{...inputSt, height:"100px", paddingTop:"10px", width:"100%", background:"var(--surface)", border:"1px solid var(--border)", borderRadius:"8px", color:"var(--text)"}} placeholder="e.g. Total amount mismatch or incorrect service details..." required />
+            </Field>
+            <button type="submit" className="btn btn-primary" style={{width:"100%", background:"var(--accent2)", borderColor:"var(--accent2)"}}>Submit & Decline</button>
+          </form>
+        </Modal>
+      )}
+
+      {/* ══ PAYMENT MODAL ══ */}
+      {payModal && (
+        <Modal title="Secure Payment Gateway" onClose={() => setPayModal(null)} width="400px">
+          {payModal.step === 'init' ? (
+            <div style={{padding:"10px 5px"}}>
+              <div style={{display:"flex", alignItems:"center", gap:"15px", marginBottom:"24px", padding:"16px", background:"rgba(108,99,255,0.05)", borderRadius:"12px", border:"1px solid rgba(108,99,255,0.1)"}}>
+                <div style={{width:"48px", height:"48px", borderRadius:"12px", background:"var(--accent)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"20px", color:"white"}}>⚡</div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:"11px", color:"var(--muted)", textTransform:"uppercase", letterSpacing:"1px"}}>Total Payable</div>
+                  <div style={{fontSize:"24px", fontWeight:"700", fontFamily:"'Clash Display'"}}>₹{payModal.amount.toLocaleString("en-IN")}</div>
+                </div>
+              </div>
+
+              <div style={{marginBottom:"24px", textAlign:"center"}}>
+                <div style={{fontSize:"12px", fontWeight:"600", color:"var(--muted)", marginBottom:"16px"}}>SCAN QR TO PAY</div>
+                <div style={{background:"white", padding:"12px", borderRadius:"12px", marginBottom:"16px", display:"inline-block", border:"1px solid var(--border)"}}>
+                  <img src="https://res.cloudinary.com/deukqrxtt/image/upload/v1773394955/WhatsApp_Image_2026-03-13_at_3.03.41_PM_rixo3n.jpg" 
+                       alt="Payment QR Code" 
+                       style={{width:"220px", height:"auto", borderRadius:"8px", display:"block"}} />
+                </div>
+                <div style={{fontSize:"11px", color:"var(--muted)", padding:"10px", border:"1px dashed var(--border)", borderRadius:"8px"}}>
+                  UPI ID: <strong style={{color:"var(--text)"}}>priyathamtella@okhdfcbank</strong>
+                </div>
+              </div>
+
+              <button className="btn btn-primary" style={{width:"100%", padding:"14px", borderRadius:"10px", fontWeight:"700", boxShadow:"0 4px 15px rgba(108,99,255,0.3)"}} onClick={() => {
+                setPayModal({...payModal, step: 'processing'});
+                setPayTimer(600);
+              }}>
+                I have Scanned & Paid
+              </button>
+            </div>
+          ) : payModal.step === 'processing' ? (
+            <div style={{textAlign:"center", padding:"40px 10px"}}>
+              <div style={{position:"relative", width:"80px", height:"80px", margin:"0 auto 30px"}}>
+                <div className="spinner" style={{position:"absolute", inset:0, border:"3px solid rgba(108,99,255,0.1)", borderTopColor:"var(--accent)", borderRadius:"50%", animation:"spin 1s linear infinite"}}></div>
+                <div style={{position:"absolute", inset:"10px", background:"var(--bg)", borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"24px"}}>💳</div>
+              </div>
+              
+              <div style={{fontSize:"18px", fontWeight:"700", marginBottom:"10px"}}>Confirming Transaction</div>
+              <p style={{fontSize:"13px", color:"var(--muted)", marginBottom:"24px", padding:"0 20px"}}>We are verifying the payment with the bank. This usually takes a few minutes.</p>
+              
+              <div style={{display:"inline-flex", alignItems:"center", gap:"10px", padding:"8px 20px", background:"rgba(247,151,30,0.1)", borderRadius:"30px", marginBottom:"30px"}}>
+                <span className="status-dot" style={{background:"var(--accent4)", animation:"pulse 1.5s infinite"}}></span>
+                <span style={{fontSize:"17px", fontWeight:"700", color:"var(--accent4)", fontFamily:"'JetBrains Mono', monospace"}}>
+                    {Math.floor(payTimer / 60)}:{String(payTimer % 60).padStart(2, '0')}
+                </span>
+              </div>
+
+              <div style={{display:"flex", flexDirection:"column", gap:"10px"}}>
+                <button className="btn btn-ghost" style={{width:"100%", fontSize:"12px"}} onClick={() => { 
+                  setPayModal({...payModal, step: 'success'}); 
+                  updateInvoice(payModal.id, { status: "Paid" }); 
+                }}>Complete Verification Now</button>
+                <button className="btn btn-ghost" style={{width:"100%", fontSize:"11px", border:"none", color:"var(--muted)"}} onClick={() => setPayModal(null)}>Cancel Verification</button>
+              </div>
+            </div>
+          ) : (
+            <div style={{textAlign:"center", padding:"40px 10px"}}>
+              <div style={{width:"80px", height:"80px", background:"rgba(67,233,123,0.1)", borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 24px", fontSize:"40px"}}>✅</div>
+              <div style={{fontSize:"22px", fontWeight:"700", color:"var(--accent3)", marginBottom:"12px"}}>Payment Received!</div>
+              <p style={{fontSize:"14px", color:"var(--muted)", marginBottom:"32px"}}>The transaction was successful. Your invoice has been marked as <strong>Paid</strong>.</p>
+              <button className="btn btn-primary" style={{width:"100%", padding:"14px", borderRadius:"10px"}} onClick={() => setPayModal(null)}>Back to Dashboard</button>
+            </div>
+          )}
         </Modal>
       )}
 

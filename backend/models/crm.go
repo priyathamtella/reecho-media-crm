@@ -48,11 +48,14 @@ type Invoice struct {
 	gorm.Model
 	UserID    string `json:"user_id"`
 	InvoiceID string `json:"invoice_id"`
-	Client    string `json:"client"`
+	Client    string `json:"client"` // Can be client name or member name
 	Service   string `json:"service"`
 	Amount    int    `json:"amount"`
 	Date      string `json:"date"`
-	Status    string `json:"status"` // Paid, Pending, Overdue
+	Status    string `json:"status"`   // Paid, Pending, Overdue, Cancelled
+	Type          string `json:"type"`     // 'client' (Admin -> Client) or 'payout' (Member -> Admin)
+	Sender        string `json:"sender"`   // Email of who raised it
+	DeclineReason string `json:"decline_reason"`
 }
 
 type TeamMember struct {
