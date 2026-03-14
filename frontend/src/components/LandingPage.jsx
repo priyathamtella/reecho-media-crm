@@ -122,26 +122,26 @@ const LandingPage = () => {
         whileInView="visible"
         viewport={{ once: true, margin: "-100px" }}
         variants={staggerContainer}
-        className="py-24 px-6 relative flex flex-col items-center justify-center bg-[var(--text)] text-[var(--bg)] overflow-hidden text-center min-h-[50vh]"
+        className="py-32 px-6 relative flex flex-col items-center justify-center bg-[#0F172A] text-white overflow-hidden text-center min-h-[60vh]"
       >
         <motion.h2 
           variants={fadeInUp}
-          className="text-[10vw] md:text-[64px] font-medium uppercase tracking-tight leading-none mb-8" 
+          className="text-[12vw] md:text-[80px] font-medium uppercase tracking-tight leading-[0.9] mb-10" 
           style={{ fontFamily: 'serif' }}
         >
           WE GET THE <br /> JOB DONE
         </motion.h2>
         <motion.p 
           variants={fadeInUp}
-          className="max-w-3xl text-base md:text-xl font-medium leading-relaxed mb-12 opacity-80 mx-auto"
+          className="max-w-3xl text-lg md:text-2xl font-normal leading-relaxed mb-16 opacity-80 mx-auto italic"
         >
           We're a creative agency team that specializes in providing end-to-end services to help businesses get the required task DONE. We offer a comprehensive suite of services under one roof.
         </motion.p>
 
-        <div ref={badgeRef} className="relative w-32 h-32 mx-auto z-10 cursor-pointer group" style={{ perspective: 1000 }}>
+        <div ref={badgeRef} className="relative w-40 h-40 mx-auto z-10 cursor-pointer group" style={{ perspective: 1000 }}>
           <motion.div 
             style={{ rotate: badgeRotate, rotateX: badgeRotateX, scale: badgeScale, opacity: badgeOpacity }}
-            className="w-full h-full bg-[var(--accent)] rounded-full flex items-center justify-center text-[var(--text)] font-semibold text-center text-[10px] p-4 shadow-2xl uppercase tracking-widest transition-transform duration-500 group-hover:scale-110"
+            className="w-full h-full bg-[#EAB308] rounded-full flex items-center justify-center text-[#0F172A] font-semibold text-center text-xs p-5 shadow-2xl uppercase tracking-widest transition-transform duration-500 group-hover:scale-110 border-4 border-white/20"
           >
             OUR BRANDS <br /> & SOLUTIONS
           </motion.div>
@@ -149,8 +149,8 @@ const LandingPage = () => {
       </motion.section>
 
       {/* Marquee LOGO Section */}
-      <section className="py-12 border-y border-[var(--border)] overflow-hidden bg-[var(--bg)] relative z-20">
-        <div className="flex gap-20 animate-marquee whitespace-nowrap opacity-50 grayscale hover:grayscale-0 transition-all duration-500 items-center">
+      <section className="py-16 border-y border-[var(--border)] overflow-hidden bg-[var(--bg)] relative z-20">
+        <div className="flex gap-20 animate-marquee whitespace-nowrap opacity-40 grayscale hover:grayscale-0 transition-opacity duration-500 items-center">
           {[...dummyLogos, ...dummyLogos].map((src, i) => (
              <img key={i} src={src} className="h-8 md:h-12 object-contain mx-8" alt="Partner Logo" />
           ))}
@@ -163,15 +163,15 @@ const LandingPage = () => {
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, margin: "-100px" }}
-        className="py-24 px-6 bg-[var(--bg)] w-full relative z-30"
+        className="py-32 px-6 bg-[var(--bg)] w-full relative z-30"
       >
-        <div className="text-center mb-16">
-          <h2 className="text-[12vw] md:text-[100px] font-medium uppercase text-[var(--text)] tracking-tighter leading-none" style={{ fontFamily: 'serif' }}>
+        <div className="text-center mb-24">
+          <h2 className="text-[12vw] md:text-[110px] font-medium uppercase text-[var(--text)] tracking-tighter leading-none" style={{ fontFamily: 'serif' }}>
             OUR EXPERTISE
           </h2>
         </div>
 
-        <div className="flex flex-col w-full max-w-7xl mx-auto gap-6">
+        <div className="flex flex-col w-full max-w-7xl mx-auto gap-8">
           {[
             { title: "VIDEOGRAPHY", desc: "We create content that connects with your audience - built on strategy, guided by insight, and designed to deliver across platforms." }, 
             { title: "WEBSITE DESIGN & DEVELOPMENT", desc: "We design user experiences that are intuitive, goal-driven, and built around real user behavior - turning complexity into clarity." }, 
@@ -181,12 +181,12 @@ const LandingPage = () => {
             <motion.div 
               key={i} 
               variants={fadeInUp}
-              className="group relative w-full rounded-[40px] bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--brand)] hover:text-white transition-all duration-500 p-8 md:p-16 flex flex-col md:flex-row justify-between items-start md:items-center gap-8 cursor-pointer shadow-lg hover:shadow-2xl"
+              className="group relative w-full rounded-[48px] bg-[var(--surface)] border border-[var(--border)] hover:bg-[#991B1B] hover:text-white transition-all duration-700 p-10 md:p-20 flex flex-col md:flex-row justify-between items-start md:items-center gap-10 cursor-pointer shadow-xl hover:shadow-[0_20px_60px_-15px_rgba(153,27,27,0.3)]"
             >
-               <h3 className="text-4xl md:text-6xl font-medium uppercase md:w-1/2 tracking-tighter" style={{ fontFamily: 'serif' }}>
+               <h3 className="text-4xl md:text-7xl font-medium uppercase md:w-1/2 tracking-tighter leading-none" style={{ fontFamily: 'serif' }}>
                  {service.title}
                </h3>
-               <p className="text-lg md:text-xl font-medium md:w-1/2 opacity-70 italic">
+               <p className="text-xl md:text-2xl font-normal md:w-1/2 opacity-70 italic leading-relaxed">
                  {service.desc}
                </p>
             </motion.div>
@@ -201,52 +201,57 @@ const LandingPage = () => {
         whileInView="visible"
         viewport={{ once: true, margin: "-100px" }}
         variants={staggerContainer}
-        className="py-12 px-6 max-w-7xl mx-auto"
+        className="py-20 px-6 max-w-7xl mx-auto"
       >
-        <div className="flex flex-col md:flex-row gap-8">
-          <motion.div variants={fadeInUp} className="group relative rounded-[40px] overflow-hidden aspect-square md:w-1/2 shadow-xl border border-[var(--border)]">
-            <img src={dummyImages[0]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="Featured Work" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[var(--text)]/80 to-transparent flex flex-col justify-end p-12 text-white">
-              <h3 className="text-4xl font-medium uppercase mb-4" style={{ fontFamily: 'serif' }}>ASTE CAFE</h3>
-              <p className="text-sm font-semibold tracking-widest uppercase bg-[var(--brand)] w-fit px-6 py-2 rounded-full shadow-lg">Branding & Strategy</p>
+        <div className="flex flex-col md:flex-row gap-10">
+          <motion.div variants={fadeInUp} className="group relative rounded-[48px] overflow-hidden aspect-square md:w-1/2 shadow-2xl border border-[var(--border)]">
+            <img src={dummyImages[0]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 grayscale group-hover:grayscale-0" alt="Featured Work" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A]/90 to-transparent flex flex-col justify-end p-12 text-white">
+              <h3 className="text-5xl font-medium uppercase mb-6 tracking-tight" style={{ fontFamily: 'serif' }}>ASTE CAFE</h3>
+              <p className="text-sm font-semibold tracking-widest uppercase bg-[#991B1B] w-fit px-8 py-3 rounded-full shadow-lg">Branding & Strategy</p>
             </div>
           </motion.div>
-          <div className="flex flex-col gap-8 md:w-1/2">
-            <motion.div variants={fadeInUp} className="group relative rounded-[40px] overflow-hidden flex-1 shadow-xl border border-[var(--border)]">
-              <img src={dummyImages[1]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="Campaign" />
-              <div className="absolute inset-0 bg-[var(--text)]/20 group-hover:bg-[var(--text)]/40 flex items-center justify-center transition-all duration-500">
-                <div className="bg-[var(--accent)] p-6 rounded-full text-[var(--text)] shadow-2xl scale-90 group-hover:scale-100 transition-transform duration-500">
-                  <Play size={32} fill="currentColor" />
+          <div className="flex flex-col gap-10 md:w-1/2">
+            <motion.div variants={fadeInUp} className="group relative rounded-[48px] overflow-hidden flex-1 shadow-2xl border border-[var(--border)] min-h-[300px]">
+              <img src={dummyImages[1]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 grayscale group-hover:grayscale-0" alt="Campaign" />
+              <div className="absolute inset-0 bg-[#0F172A]/10 group-hover:bg-[#0F172A]/40 flex items-center justify-center transition-all duration-500">
+                <div className="bg-[#EAB308] p-8 rounded-full text-[#0F172A] shadow-2xl scale-90 group-hover:scale-100 transition-transform duration-500">
+                  <Play size={40} fill="currentColor" />
                 </div>
               </div>
             </motion.div>
             <motion.div 
               onClick={() => window.location.href='/contact'}
               variants={fadeInUp} 
-              className="group relative rounded-[40px] overflow-hidden h-[150px] md:h-[200px] bg-[var(--brand)] text-white flex flex-col items-center justify-center p-8 hover:scale-[1.02] transition-transform duration-500 cursor-pointer shadow-xl"
+              className="group relative rounded-[48px] overflow-hidden h-48 md:h-64 bg-[#991B1B] text-white flex flex-col items-center justify-center p-10 hover:scale-[1.02] transition-all duration-500 cursor-pointer shadow-2xl overflow-hidden"
             >
-               <h3 className="text-4xl md:text-5xl font-medium uppercase text-center tracking-tighter" style={{ fontFamily: 'serif' }}>Got A PROJECT?</h3>
+               <h3 className="text-5xl md:text-7xl font-medium uppercase text-center tracking-tighter mb-2" style={{ fontFamily: 'serif' }}>Got A PROJECT?</h3>
+               <div className="flex items-center gap-2 text-white/60 font-medium tracking-widest text-xs">
+                  <span className="w-8 h-[1px] bg-white/30"></span>
+                  LET'S BUILD SOMETHING GREAT
+                  <span className="w-8 h-[1px] bg-white/30"></span>
+               </div>
             </motion.div>
           </div>
         </div>
       </motion.section>
 
       {/* CONTACT BANNER */}
-      <section className="py-24 px-6 md:px-12">
-        <div className="max-w-7xl mx-auto bg-[var(--surface)] border border-[var(--border)] rounded-[48px] overflow-hidden flex flex-col lg:flex-row shadow-2xl">
-          <motion.div variants={fadeInLeft} className="p-12 md:p-24 flex-1 flex flex-col justify-center">
-             <h2 className="text-5xl md:text-7xl font-medium uppercase tracking-tighter leading-none mb-12 text-[var(--text)]" style={{ fontFamily: 'serif' }}>
+      <section className="py-32 px-6 md:px-12">
+        <div className="max-w-7xl mx-auto bg-[var(--surface)] border border-[var(--border)] rounded-[64px] overflow-hidden flex flex-col lg:flex-row shadow-2xl">
+          <motion.div variants={fadeInLeft} className="p-16 md:p-28 flex-1 flex flex-col justify-center">
+             <h2 className="text-5xl md:text-8xl font-medium uppercase tracking-tighter leading-[0.85] mb-16 text-[var(--text)]" style={{ fontFamily: 'serif' }}>
                READY TO BRING YOUR VISION TO LIFE?
              </h2>
-             <Link to="/contact" className="flex items-center gap-4 bg-[var(--brand)] text-white w-fit px-10 py-5 rounded-full text-xl font-semibold hover:scale-105 transition-transform group shadow-xl">
-               Let's Talk <ArrowRight className="group-hover:translate-x-2 transition-transform" />
+             <Link to="/contact" className="flex items-center gap-4 bg-[#991B1B] text-white w-fit px-12 py-6 rounded-full text-2xl font-semibold hover:scale-105 transition-transform group shadow-2xl">
+               Let's Talk <ArrowRight className="group-hover:translate-x-3 transition-transform" />
              </Link>
           </motion.div>
-          <div className="flex-1 min-h-[400px]">
+          <div className="flex-1 min-h-[500px]">
             <img 
               src="https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?auto=format&fit=crop&q=80&w=1200" 
               alt="Creative Consultation"
-              className="w-full h-full object-cover grayscale opacity-90 transition-all duration-700 hover:grayscale-0"
+              className="w-full h-full object-cover grayscale opacity-90 transition-all duration-1000 hover:grayscale-0 hover:scale-105"
             />
           </div>
         </div>
