@@ -133,7 +133,7 @@ const CampaignsPage = () => {
                   transition={{ delay: i * 0.1 }}
                   className="group relative rounded-[40px] overflow-hidden aspect-[4/5] cursor-pointer shadow-2xl border border-[var(--bg)]/10"
                 >
-                  <img src={item.src} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 grayscale group-hover:grayscale-0" alt={item.title} />
+                  <img src={item.src} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt={item.title} />
                   <div className="absolute inset-0 bg-gradient-to-t from-[var(--text)] to-transparent flex flex-col justify-end p-8 text-white">
                     <span className="text-xs font-semibold tracking-widest text-[var(--accent)] mb-2 uppercase">{item.tag}</span>
                     <h3 className="text-3xl font-medium uppercase" style={{ fontFamily: 'serif' }}>{item.title}</h3>
@@ -160,7 +160,7 @@ const CampaignsPage = () => {
                <img 
                 src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200" 
                 alt="Campaign Concept"
-                className="w-full h-full object-cover grayscale opacity-80"
+                className="w-full h-full object-cover opacity-80"
               />
             </div>
           </div>

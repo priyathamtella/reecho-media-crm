@@ -151,7 +151,7 @@ const ServicesPage = () => {
             <img 
               src="https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&q=80&w=1200" 
               alt="Workspace"
-              className="absolute inset-0 w-full h-full object-cover grayscale opacity-80"
+              className="absolute inset-0 w-full h-full object-cover opacity-80"
             />
           </motion.div>
         </div>

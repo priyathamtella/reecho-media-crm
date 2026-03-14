@@ -38,7 +38,7 @@ const WorkPage = () => {
         >
           <div className="flex flex-col md:flex-row gap-8">
             <motion.div variants={fadeInUp} className="group relative rounded-[48px] overflow-hidden aspect-square md:w-[60%] cursor-pointer border border-[var(--border)] shadow-2xl">
-              <img src="https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&q=80&w=1200" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 ease-easeInOut grayscale group-hover:grayscale-0" alt="Major Case Study" />
+              <img src="https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&q=80&w=1200" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 ease-easeInOut" alt="Major Case Study" />
               <div className="absolute inset-0 bg-gradient-to-t from-[var(--text)]/80 via-transparent flex flex-col justify-end p-12 text-white">
                 <h3 className="text-4xl md:text-6xl font-medium uppercase mb-2" style={{ fontFamily: 'serif' }}>PROJECT ALPHA</h3>
                 <p className="text-sm font-semibold tracking-[0.2em] bg-[var(--brand)] w-fit px-6 py-2 rounded-full uppercase mt-2 shadow-lg">Strategy & Design</p>
@@ -46,7 +46,7 @@ const WorkPage = () => {
             </motion.div>
             <div className="flex flex-col gap-8 md:w-[40%]">
               <motion.div variants={fadeInUp} className="group relative rounded-[40px] overflow-hidden w-full h-[50%] cursor-pointer border border-[var(--border)] shadow-xl">
-                <img src="https://images.unsplash.com/photo-1541462608141-ad60397d4bc7?auto=format&fit=crop&q=80&w=800" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 ease-easeInOut grayscale group-hover:grayscale-0" alt="Secondary Work" />
+                <img src="https://images.unsplash.com/photo-1541462608141-ad60397d4bc7?auto=format&fit=crop&q=80&w=800" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 ease-easeInOut" alt="Secondary Work" />
                 <div className="absolute inset-0 bg-[var(--text)]/40 group-hover:bg-[var(--text)]/60 transition-colors duration-500 flex items-center justify-center pointer-events-none">
                   <div className="bg-[var(--accent)] p-6 rounded-full text-[var(--text)] shadow-xl scale-90 group-hover:scale-100 transition-transform duration-500">
                     <Play size={32} fill="currentColor" />
@@ -85,7 +85,7 @@ const WorkPage = () => {
             <img 
               src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=1200" 
               alt="Creative Data"
-              className="absolute inset-0 w-full h-full object-cover grayscale opacity-80"
+              className="absolute inset-0 w-full h-full object-cover opacity-80"
             />
           </motion.div>
         </div>

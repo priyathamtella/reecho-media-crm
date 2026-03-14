@@ -95,7 +95,7 @@ const LandingPage = () => {
         </motion.div>
 
         {/* Slanted Image Carousel */}
-        <div className="relative w-full overflow-visile flex flex-col justify-center bg-[var(--surface)] h-full md:h-[650px] pb-10 md:pb-24 z-20 mt-4 md:mt-8 border-y border-[var(--border)]">
+        <div className="relative w-full overflow-visible flex flex-col justify-center bg-[var(--bg)] h-full md:h-[650px] pb-10 md:pb-24 z-20 mt-4 md:mt-8 border-y border-[var(--border)]">
            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150vw] rotate-[-12deg] pointer-events-none">
              <div className="flex w-fit animate-image-marquee hover:[animation-play-state:paused] gap-4 md:gap-8 px-4 pointer-events-auto items-center h-[600px]">
                {[...dummyImages, ...dummyImages].map((src, i) => (
@@ -122,7 +122,7 @@ const LandingPage = () => {
         whileInView="visible"
         viewport={{ once: true, margin: "-100px" }}
         variants={staggerContainer}
-        className="py-32 px-6 relative flex flex-col items-center justify-center bg-[#0F172A] text-white overflow-hidden text-center min-h-[60vh]"
+        className="py-32 px-6 relative flex flex-col items-center justify-center bg-[var(--bg)] text-[var(--text)] overflow-hidden text-center min-h-[60vh]"
       >
         <motion.h2 
           variants={fadeInUp}

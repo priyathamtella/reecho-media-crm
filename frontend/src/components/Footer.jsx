@@ -9,6 +9,13 @@ const Footer = () => {
          
          <div className="md:col-span-6 flex flex-col justify-start">
             <div className="flex items-center gap-6 mb-8">
+               <Link to="/" className="hover:scale-110 transition-transform">
+                 <img 
+                   src="https://res.cloudinary.com/dxcygn064/image/upload/v1773517532/Untitled_design__1_-removebg-preview_h65kii.png" 
+                   alt="Reecho Media" 
+                   className="h-14 w-auto object-contain invert transition-all duration-300 scale-150" 
+                 />
+               </Link>
                <a href="https://www.instagram.com/reecho_media/" target="_blank" rel="noopener noreferrer" className="border border-[var(--bg)]/30 rounded-full p-4 w-fit hover:bg-[var(--brand)] hover:text-white hover:border-[var(--brand)] transition-all duration-300 shadow-lg">
                  <Instagram size={24} />
                </a>
@@ -42,7 +49,7 @@ const Footer = () => {
       {/* Bottom Legal Bar */}
       <div className="bg-[var(--text)] border-t border-[var(--bg)]/10 py-8 z-30 relative px-6 w-full">
         <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-center gap-6 text-xs font-medium opacity-60">
-          <p>© 2026 REECHO MEDIA. ALL RIGHTS RESERVED.</p>
+          <p>© 2026 ALL RIGHTS RESERVED.</p>
           <div className="flex gap-8 items-center">
             <Link to="/login" className="hover:text-[var(--brand)] transition-colors uppercase font-semibold tracking-widest bg-[var(--bg)]/5 px-6 py-2 rounded-lg border border-[var(--bg)]/10">Admin Login</Link>
             <a href="#" className="hover:text-[var(--brand)] transition-colors">Privacy Policy</a>

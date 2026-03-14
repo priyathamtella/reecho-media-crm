@@ -80,7 +80,7 @@ const AboutUsPage = () => {
             </motion.div>
 
             <motion.div variants={fadeInUp} className="w-full lg:w-1/2 relative rounded-[48px] overflow-hidden border border-[var(--border)] shadow-2xl h-[700px]">
-                <img src="https://res.cloudinary.com/deukqrxtt/image/upload/v1773316552/WhatsApp_Image_2026-03-12_at_5.23.51_PM_mod2cm.jpg" alt="Priyatham - Reecho Media Founder" className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-1000 ease-in-out"/>
+                <img src="https://res.cloudinary.com/deukqrxtt/image/upload/v1773316552/WhatsApp_Image_2026-03-12_at_5.23.51_PM_mod2cm.jpg" alt="Priyatham - Reecho Media Founder" className="w-full h-full object-cover transition-all duration-1000 ease-in-out"/>
             </motion.div>
           </div>
 
@@ -116,7 +116,7 @@ const AboutUsPage = () => {
           {/* What We Do */}
           <div className="flex flex-col-reverse lg:flex-row w-full mt-48 gap-16 lg:gap-24 items-center">
             <motion.div variants={fadeInUp} className="w-full lg:w-1/2 relative rounded-[48px] overflow-hidden border border-[var(--border)] shadow-2xl h-auto">
-                <img src="https://res.cloudinary.com/deukqrxtt/image/upload/v1773316556/WhatsApp_Image_2026-03-12_at_5.24.46_PM_dhvswh.jpg" alt="Reecho Media Work" className="w-full h-auto object-cover grayscale hover:grayscale-0 transition-all duration-1000 ease-in-out"/>
+                <img src="https://res.cloudinary.com/deukqrxtt/image/upload/v1773316556/WhatsApp_Image_2026-03-12_at_5.24.46_PM_dhvswh.jpg" alt="Reecho Media Work" className="w-full h-auto object-cover transition-all duration-1000 ease-in-out"/>
             </motion.div>
             
             <motion.div variants={fadeInUp} className="w-full lg:w-1/2 flex flex-col justify-center space-y-10">
@@ -197,7 +197,7 @@ const AboutUsPage = () => {
             <img 
               src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&q=80&w=1200" 
               alt="Team at Coworking Space"
-              className="absolute inset-0 w-full h-full object-cover grayscale opacity-80"
+              className="absolute inset-0 w-full h-full object-cover opacity-80"
             />
           </motion.div>
         </div>
