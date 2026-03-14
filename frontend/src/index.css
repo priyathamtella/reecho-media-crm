@@ -1,40 +1,46 @@
-@import url('https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&display=swap');
 @import "tailwindcss";
+
 @custom-variant dark (&:is(.dark *));
+
 :root {
-  --bg: #F8FAFC;
-  --surface: #F1F5F9;
+  --bg: #F9FAFB;
+  --surface: #FFFFFF;
   --card: #FFFFFF;
-  --border: #E2E8F0;
-  --accent: #6C63FF;
-  --accent2: #E11D48; /* Darker red for light mode */
-  --accent3: #059669; /* Darker green for light mode */
-  --accent4: #F59E0B;
-  --text: #0F172A;
+  --border: rgba(15, 23, 42, 0.1);
+  --brand: #991B1B; /* Crimson Red */
+  --accent: #991B1B; /* Yellow/Gold */
+  --text: #0F172A; /* Navy Blue */
+  --text-secondary: #475569;
   --muted: #64748B;
   --tag-bg: #F1F5F9;
+  
+  /* Transitional colors */
+  --nav-bg: rgba(249, 250, 251, 0.98);
 }
 
 .dark {
-  --bg: #0A0A0F;
-  --surface: #111118;
-  --card: #16161F;
-  --border: #1E1E2E;
-  --accent: #6C63FF;
-  --accent2: #FF6584;
-  --accent3: #43E97B;
-  --accent4: #F7971E;
-  --text: #E8E8F0;
-  --muted: #6B6B85;
-  --tag-bg: #1A1A28;
+  --bg: #020617; /* Very Dark Navy */
+  --surface: #0F172A; /* Navy Surface */
+  --card: #0F172A;
+  --border: rgba(241, 245, 249, 0.1);
+  --brand: #991B1B; /* Brighter Crimson for dark mode */
+  --accent: #991B1B; /* Bright Yellow */
+  --text: #F1F5F9;
+  --text-secondary: #94A3B8;
+  --muted: #64748B;
+  --tag-bg: #1E293B;
+  
+  --nav-bg: rgba(2, 6, 23, 0.98);
 }
 
 body {
-  font-family: 'DM Sans', sans-serif;
-  background: var(--bg);
+  font-family: 'Times New Roman', Times, serif;
+  background-color: var(--bg);
   color: var(--text);
   min-height: 100vh;
   overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .avatar {
@@ -50,12 +56,12 @@ body {
 .av-pink { background: linear-gradient(135deg, #FF6584, #f97316); }
 .av-green { background: linear-gradient(135deg, #43E97B, #38f9d7); }
 .av-blue { background: linear-gradient(135deg, #4facfe, #00f2fe); }
-.av-orange { background: linear-gradient(135deg, #F7971E, #FFD200); }
+.av-orange { background: linear-gradient(135deg, #991b1b, #ad3e3e); }
 
 /* MAIN */
 .topbar {
   position: sticky; top: 0; z-index: 50;
-  background: rgba(10,10,15,0.85);
+  background: var(--nav-bg);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border);
   padding: 0 32px;
@@ -72,7 +78,7 @@ body {
 }
 
 .page-title {
-  font-family: 'Clash Display', sans-serif;
+  font-family: inherit;
   font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.3px;
@@ -192,7 +198,7 @@ body {
 .stat-card.s4::before { background: var(--accent4); }
 
 .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-.stat-value { font-family: 'Clash Display', sans-serif; font-size: 30px; font-weight: 700; letter-spacing: -1px; }
+.stat-value { font-family: inherit; font-size: 30px; font-weight: 600; letter-spacing: -1px; }
 .stat-change { font-size: 11px; margin-top: 4px; }
 .up { color: var(--accent3); }
 .stat-icon { position: absolute; top: 16px; right: 16px; font-size: 20px; opacity: 0.6; }
@@ -219,7 +225,7 @@ body {
 }
 
 .card-title {
-  font-family: 'Clash Display', sans-serif;
+  font-family: inherit;
   font-size: 14px;
   font-weight: 600;
   letter-spacing: -0.2px;
@@ -295,7 +301,7 @@ body {
 
 .tag-content { background: rgba(108,99,255,0.15); color: var(--accent); }
 .tag-design { background: rgba(255,101,132,0.15); color: var(--accent2); }
-.tag-ads { background: rgba(247,151,30,0.15); color: var(--accent4); }
+.tag-ads { background: rgba(153,27,27,0.15); color: var(--brand); }
 .tag-seo { background: rgba(67,233,123,0.15); color: var(--accent3); }
 
 .task-name { font-size: 13px; font-weight: 500; margin-bottom: 10px; line-height: 1.4; }
@@ -333,7 +339,7 @@ body {
   border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   flex-shrink: 0;
 }
 
@@ -407,7 +413,7 @@ body {
 
 .post-ig { background: rgba(108,99,255,0.2); color: #a78bfa; }
 .post-fb { background: rgba(67,170,233,0.2); color: #67b7e8; }
-.post-li { background: rgba(247,151,30,0.2); color: var(--accent4); }
+.post-li { background: rgba(153,27,27,0.2); color: var(--brand); }
 .post-tw { background: rgba(67,233,123,0.2); color: var(--accent3); }
 
 /* PAYMENTS */
@@ -430,7 +436,7 @@ body {
 .invoice-row.header:hover { background: var(--tag-bg); }
 
 .invoice-id { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); }
-.amount { font-family: 'Clash Display', sans-serif; font-size: 15px; font-weight: 600; }
+.amount { font-family: inherit; font-size: 15px; font-weight: 600; }
 .paid { color: var(--accent3); }
 .overdue-text { color: var(--accent2); }
 .pending { color: var(--accent4); }
@@ -472,7 +478,7 @@ body {
 }
 
 .ms { text-align: center; background: var(--surface); border-radius: 6px; padding: 8px; }
-.ms-val { font-size: 16px; font-weight: 700; font-family: 'Clash Display', sans-serif; }
+.ms-val { font-size: 16px; font-weight: 600; font-family: inherit; }
 .ms-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 
 .member-tasks { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
@@ -509,10 +515,10 @@ body {
   border-radius: 12px;
   display: flex; align-items: center; justify-content: center;
   font-size: 20px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
-.portal-brand-name { font-family: 'Clash Display', sans-serif; font-size: 22px; font-weight: 700; }
+.portal-brand-name { font-family: inherit; font-size: 22px; font-weight: 600; }
 .portal-brand-plan { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
 .portal-meta { text-align: right; }
@@ -591,7 +597,7 @@ body {
 }
 
 .section-title {
-  font-family: 'Clash Display', sans-serif;
+  font-family: inherit;
   font-size: 16px;
   font-weight: 600;
 }
@@ -634,7 +640,7 @@ body {
 
 .ai-purple { background: rgba(108,99,255,0.15); }
 .ai-green { background: rgba(67,233,123,0.15); }
-.ai-orange { background: rgba(247,151,30,0.15); }
+.ai-orange { background: rgba(153,27,27,0.15); }
 .ai-pink { background: rgba(255,101,132,0.15); }
 
 .activity-text { font-size: 12px; line-height: 1.5; }
@@ -687,5 +693,5 @@ body {
 }
 
 .hb-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin-bottom: 6px; }
-.hb-value { font-family: 'Clash Display', sans-serif; font-size: 24px; font-weight: 700; }
+.hb-value { font-family: inherit; font-size: 24px; font-weight: 600; }
 .hb-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }

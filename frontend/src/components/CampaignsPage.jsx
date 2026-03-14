@@ -3,17 +3,11 @@ import Navbar from './Navbar';
 import { Link } from 'react-router-dom';
 import Footer from './Footer';
 import { motion } from 'framer-motion';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Zap, Target, Rocket, Star } from 'lucide-react';
 
 const CampaignsPage = () => {
-  const dummyImages = [
-    "https://images.unsplash.com/photo-1542204165-65bf26472b9b?auto=format&fit=crop&q=80&w=800",
-    "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&q=80&w=800",
-    "https://images.unsplash.com/photo-1505236858219-8359eb29e329?auto=format&fit=crop&q=80&w=800"
-  ];
-
   const fadeInUp = {
-    hidden: { opacity: 0, y: 50 },
+    hidden: { opacity: 0, y: 30 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: "easeOut" } }
   };
 
@@ -22,76 +16,156 @@ const CampaignsPage = () => {
     visible: { opacity: 1, transition: { staggerChildren: 0.2 } }
   };
 
+  const phases = [
+    {
+      number: "01",
+      title: "The Mastermind",
+      subtitle: "Strategy & Identity",
+      content: "We never build a house without a blueprint. Through high-level Consulting and deep-dive Designing and Branding, we define exactly who you are and who needs to hear about it.",
+      icon: <Target className="w-8 h-8" />,
+    },
+    {
+      number: "02",
+      title: "Building the Universe",
+      subtitle: "Creative & Tech",
+      content: "Next, we build the world your audience will step into. We design high-converting foundations through Website Design and Development, filled with 3D Animation and CGI.",
+      icon: <Zap className="w-8 h-8" />,
+    },
+    {
+      number: "03",
+      title: "Turning Up the Volume",
+      subtitle: "Amplification",
+      content: "We deploy 360° Digital Marketing to surround your audience. Our Social Media wizards build community, while Performance Marketing optimizes every penny for ROI.",
+      icon: <Rocket className="w-8 h-8" />,
+    },
+    {
+      number: "04",
+      title: "The Showstoppers",
+      subtitle: "The Big Splash",
+      content: "When it's time to make history, we pull out the heavy artillery. We orchestrate massive Hero Campaigns and launch real-world Brand Activations.",
+      icon: <Star className="w-8 h-8" />,
+    }
+  ];
+
+  const placeholders = [
+    {
+      title: "Future of Branding",
+      src: "https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?auto=format&fit=crop&q=80&w=800",
+      tag: "DIGITAL DOMINANCE"
+    },
+    {
+      title: "Data Reimagined",
+      src: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=800",
+      tag: "STRATEGIC ROI"
+    },
+    {
+      title: "Real-World Impact",
+      src: "https://images.unsplash.com/photo-1633167606207-d840b5070fc2?auto=format&fit=crop&q=80&w=800",
+      tag: "BRAND ACTIVATION"
+    }
+  ];
+
   return (
-    <div className="min-h-screen bg-[#F4F4FA] text-[#0F172A] font-sans overflow-x-hidden selection:bg-[#0F172A] selection:text-[#C4B5FD] flex flex-col">
+    <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] font-sans overflow-x-hidden selection:bg-[var(--text)] selection:text-[var(--brand)] flex flex-col transition-colors duration-300">
       <Navbar />
 
       <main className="flex-1 pt-32 pb-24">
-        <motion.div initial="hidden" animate="visible" variants={fadeInUp} className="text-center mb-16 px-4">
-            <h1 className="text-6xl md:text-8xl lg:text-[120px] font-black uppercase text-[#0F172A] tracking-tighter" style={{ fontFamily: '"Dela Gothic One", impact, sans-serif' }}>
-              CAMPAIGNS
+        {/* HERO SECTION */}
+        <section className="px-6 max-w-7xl mx-auto text-center mb-24">
+          <motion.div initial="hidden" animate="visible" variants={fadeInUp}>
+            <h1 className="text-[12vw] md:text-[80px] lg:text-[100px] font-medium uppercase text-[var(--text)] tracking-tighter leading-[0.9] mb-8" style={{ fontFamily: 'serif' }}>
+              COMMAND ATTENTION
             </h1>
-            <p className="mt-6 text-xl text-[#0F172A]/70 font-medium">Stories that matter, scaled with digital precision.</p>
-        </motion.div>
+            <p className="text-2xl md:text-3xl font-semibold text-[var(--brand)] max-w-4xl mx-auto mb-12">
+              Most agencies just run ads. We orchestrate digital blockbusters.
+            </p>
+            <p className="text-lg md:text-2xl font-medium text-[var(--text-secondary)] max-w-3xl mx-auto leading-relaxed italic">
+              At Reecho Media, a campaign isn't just a few social posts. It is a living, breathing ecosystem designed to make your audience stop, stare, and take action.
+            </p>
+          </motion.div>
+        </section>
 
-        <motion.section 
-          initial="hidden" animate="visible" variants={staggerContainer}
-          className="px-4 max-w-[1600px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-        >
-          {[
-            { title: "Dynamic Brand", src: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0" },
-            { title: "Market Growth", src: "https://images.unsplash.com/photo-1460925895917-afdab827c52f" },
-            { title: "Creative Pulse", src: "https://images.unsplash.com/photo-1497215728101-856f4ea42174" },
-            { title: "Social Impact", src: "https://images.unsplash.com/photo-1533750349088-cd871a92f312" },
-            { title: "Team Vision", src: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f" },
-            { title: "Vibrant Hub", src: "https://images.unsplash.com/photo-1493770348161-369560ae357d" }
-          ].map((item, i) => (
-             <motion.div key={i} variants={fadeInUp} className="group relative rounded-[32px] overflow-hidden aspect-square cursor-pointer border border-[#0F172A]/5">
-              <img src={item.src} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 ease-easeInOut" alt={item.title} />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A]/90 via-[#0F172A]/20 to-transparent flex flex-col justify-end p-8 text-[#F4F4FA] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-                <h3 className="text-3xl font-black uppercase" style={{ fontFamily: '"Dela Gothic One", sans-serif' }}>{item.title}</h3>
-                <p className="text-xs font-bold tracking-widest uppercase mt-2 text-[#C4B5FD]">Case Study</p>
-              </div>
-            </motion.div>
-          ))}
-        </motion.section>
+        {/* PHASES GRID */}
+        <section className="px-6 max-w-7xl mx-auto mb-20">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {phases.map((phase, i) => (
+              <motion.div 
+                key={i}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true }}
+                variants={fadeInUp}
+                className="bg-[var(--surface)] p-8 rounded-[40px] shadow-lg flex flex-col gap-6 border border-[var(--border)] hover:border-[var(--brand)] transition-all duration-300 group"
+              >
+                <div className="flex justify-between items-center">
+                  <span className="text-4xl font-semibold opacity-20" style={{ fontFamily: 'serif' }}>{phase.number}</span>
+                  <div className="bg-[var(--brand)] p-3 rounded-xl text-white shadow-lg group-hover:scale-110 transition-transform">
+                    {phase.icon}
+                  </div>
+                </div>
+                <div>
+                  <h2 className="text-2xl font-semibold uppercase tracking-tight mb-2" style={{ fontFamily: 'serif' }}>
+                    {phase.title}
+                  </h2>
+                  <p className="text-sm font-semibold text-[var(--brand)] uppercase tracking-widest mb-4">{phase.subtitle}</p>
+                  <p className="text-base leading-relaxed font-medium opacity-80 italic">
+                    {phase.content}
+                  </p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+
+        {/* FEATURED CAMPAIGNS */}
+        <section className="bg-[var(--text)] py-24 mb-20 text-[var(--bg)]">
+          <div className="px-6 max-w-7xl mx-auto">
+            <h2 className="text-4xl md:text-6xl font-medium uppercase text-center mb-16 tracking-tighter" style={{ fontFamily: 'serif' }}>
+              THE BLOCKBUSTER EXPERIENCE
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {placeholders.map((item, i) => (
+                <motion.div 
+                  key={i}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.1 }}
+                  className="group relative rounded-[40px] overflow-hidden aspect-[4/5] cursor-pointer shadow-2xl border border-[var(--bg)]/10"
+                >
+                  <img src={item.src} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 grayscale group-hover:grayscale-0" alt={item.title} />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[var(--text)] to-transparent flex flex-col justify-end p-8 text-white">
+                    <span className="text-xs font-semibold tracking-widest text-[var(--accent)] mb-2 uppercase">{item.tag}</span>
+                    <h3 className="text-3xl font-medium uppercase" style={{ fontFamily: 'serif' }}>{item.title}</h3>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* CALL TO ACTION */}
+        <section className="px-6 max-w-7xl mx-auto">
+          <div className="bg-[var(--surface)] rounded-[48px] overflow-hidden flex flex-col lg:flex-row border border-[var(--border)] shadow-2xl">
+            <div className="p-12 md:p-20 flex-1 flex flex-col justify-center">
+              <h2 className="text-5xl md:text-7xl font-medium uppercase tracking-tighter leading-tight mb-8 text-[var(--text)]" style={{ fontFamily: 'serif' }}>
+                READY TO BREAK<br />THE INTERNET?
+              </h2>
+              <Link to="/contact" className="inline-flex items-center gap-4 bg-[var(--brand)] text-white px-10 py-5 rounded-full text-xl font-semibold hover:scale-105 transition-transform group shadow-xl w-fit">
+                Let's Make History
+                <ArrowRight className="group-hover:translate-x-2 transition-transform" />
+              </Link>
+            </div>
+            <div className="flex-1 min-h-[400px]">
+               <img 
+                src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200" 
+                alt="Campaign Concept"
+                className="w-full h-full object-cover grayscale opacity-80"
+              />
+            </div>
+          </div>
+        </section>
       </main>
-
-      <motion.section 
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: "-100px" }}
-        variants={staggerContainer}
-        className="flex flex-col items-center bg-[#F4F4FA]"
-      >
-        <div className="max-w-[1400px] w-full mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 bg-[#FCEBF0] rounded-none sm:rounded-[32px] overflow-hidden mb-16 relative mt-16">
-          <motion.div variants={{ hidden: { opacity: 0, x: -50 }, visible: { opacity: 1, x: 0, transition: { duration: 0.8, ease: "easeOut" } } }} className="flex flex-col justify-center p-8 md:p-16 lg:p-24 z-10 w-full">
-             <h2 className="text-4xl md:text-[3.5rem] lg:text-[4.5rem] font-black uppercase tracking-tight leading-[0.9] mb-16 text-[#000000]" style={{ fontFamily: '"Impact", "Bebas Neue", sans-serif' }}>
-               WANT TO RUN A SHOW-STOPPING CAMPAIGN?<br/>
-               WE'RE READY.
-             </h2>
-
-             <div className="w-full h-[1px] bg-[#000000]/20 mb-8 max-w-sm"></div>
-             
-             <Link to="/contact" className="flex items-center gap-4 text-xl font-medium text-[#000000] hover:text-[#C4B5FD] transition-colors group mb-12 w-fit">
-               Let's collaborate 
-               <ArrowRight size={24} className="group-hover:translate-x-2 transition-transform" />
-             </Link>
-
-             <p className="text-base md:text-lg font-medium text-[#000000]/70 max-w-md leading-relaxed">
-               Ready to go viral? From ideation to execution, our campaigns are designed to get noticed and drive real results. Let's make some noise.
-             </p>
-          </motion.div>
-
-          <motion.div variants={{ hidden: { opacity: 0, y: 50 }, visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: "easeOut" } } }} className="relative w-full h-full min-h-[400px] lg:min-h-full">
-            <img 
-              src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200" 
-              alt="Campaign Concept"
-              className="absolute inset-0 w-full h-full object-cover grayscale opacity-90 mix-blend-multiply"
-            />
-          </motion.div>
-        </div>
-      </motion.section>
 
       <Footer />
     </div>

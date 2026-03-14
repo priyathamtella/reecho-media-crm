@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import Navbar from './Navbar';
 import { Link } from 'react-router-dom';
 import Footer from './Footer';
@@ -6,8 +6,12 @@ import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
 
 const AboutUsPage = () => {
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   const fadeInUp = {
-    hidden: { opacity: 0, y: 50 },
+    hidden: { opacity: 0, y: 30 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: "easeOut" } }
   };
 
@@ -17,7 +21,7 @@ const AboutUsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F4F4FA] text-[#0F172A] font-sans overflow-x-hidden selection:bg-[#0F172A] selection:text-[#C4B5FD] flex flex-col">
+    <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] font-sans overflow-x-hidden selection:bg-[var(--text)] selection:text-[var(--brand)] flex flex-col transition-colors duration-300">
       <Navbar />
 
       <main className="flex-1 pt-32 pb-24 px-6 md:px-12 max-w-[1600px] mx-auto w-full">
@@ -28,37 +32,38 @@ const AboutUsPage = () => {
         >
           {/* Header */}
           <div className="text-center mb-24 relative w-full flex flex-col items-center">
-            <motion.div variants={fadeInUp} className="bg-[#FAF9F6] border border-[#0F172A]/10 px-4 py-1 flex items-center gap-2 mb-6 rounded shadow-sm">
-               <span className="w-1.5 h-1.5 bg-[#C4B5FD] rounded-full"></span>
-               <span className="text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase text-[#0F172A]/70">OUR STORY</span>
-               <span className="w-1.5 h-1.5 bg-[#C4B5FD] rounded-full"></span>
+            <motion.div variants={fadeInUp} className="bg-[var(--surface)] border border-[var(--border)] px-6 py-2 flex items-center gap-3 mb-8 rounded-full shadow-md">
+               <span className="w-2 h-2 bg-[var(--brand)] rounded-full"></span>
+               <span className="text-xs font-semibold tracking-[0.3em] uppercase text-[var(--text)] opacity-70">OUR STORY</span>
+               <span className="w-2 h-2 bg-[var(--brand)] rounded-full"></span>
             </motion.div>
             <motion.h1 
               variants={fadeInUp} 
-              className="text-[10vw] md:text-8xl lg:text-[140px] font-black uppercase text-[#0F172A] tracking-tight leading-[0.9] mb-8" 
-              style={{ fontFamily: '"Impact", "Bebas Neue", sans-serif' }}
+              className="text-[10vw] md:text-8xl lg:text-[140px] font-medium uppercase text-[var(--text)] tracking-tighter leading-[0.9] mb-8" 
+              style={{ fontFamily: 'serif' }}
             >
               ABOUT US
             </motion.h1>
-            <motion.p variants={fadeInUp} className="text-2xl md:text-4xl font-black uppercase tracking-widest text-[#C4B5FD]" style={{ fontFamily: '"Dela Gothic One", sans-serif' }}>
+            <motion.p variants={fadeInUp} className="text-2xl md:text-4xl font-medium uppercase tracking-widest text-[var(--brand)] italic" style={{ fontFamily: 'serif' }}>
               Turning Ideas into Impact
             </motion.p>
           </div>
 
           {/* The Story */}
           <div className="flex flex-col lg:flex-row w-full mt-12 gap-16 lg:gap-24 items-center">
-            <motion.div variants={fadeInUp} className="w-full lg:w-1/2 flex flex-col justify-center space-y-8">
-                <h3 className="text-3xl md:text-5xl font-black uppercase tracking-tight" style={{ fontFamily: '"Impact", "Bebas Neue", sans-serif' }}>
+            <motion.div variants={fadeInUp} className="w-full lg:w-1/2 flex flex-col justify-center space-y-10">
+                <h3 className="text-3xl md:text-5xl font-medium uppercase tracking-tight leading-tight" style={{ fontFamily: 'serif' }}>
                     Every brand begins with a story.<br/>
-                    <span className="text-[#C4B5FD]">Reecho Media began with a dream.</span>
+                    <span className="text-[var(--brand)]">Reecho Media began with a dream.</span>
                 </h3>
                 
-                <div className="space-y-6 text-lg md:text-xl text-[#0F172A]/80 font-medium leading-relaxed">
+                <div className="space-y-8 text-lg md:text-xl text-[var(--text)] opacity-90 font-medium leading-relaxed italic">
                   <p>
-                    Hi, I'm <span className="text-[#0F172A] font-bold">Priyatham</span>. While most students were focused only on completing their degrees, I had a different vision. During the second year of my BSc, I noticed something important — many talented businesses and creators had great ideas but struggled to communicate them to the world.
+                    Hi, I'm <span className="text-[var(--brand)] font-semibold">Priyatham</span>. While most students were focused only on completing their degrees, I had a different vision. During the second year of my BSc, I noticed something important — many talented businesses and creators had great ideas but struggled to communicate them to the world.
                   </p>
-                  <div className="p-8 bg-white border-l-4 border-[#C4B5FD] rounded-r-2xl shadow-lg my-8 italic">
-                    <p className="text-2xl font-bold text-[#0F172A]">
+                  <div className="p-10 bg-[var(--surface)] border-l-4 border-[var(--brand)] rounded-r-3xl shadow-xl my-10 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--brand)] opacity-5 -mr-16 -mt-16 rounded-full group-hover:scale-110 transition-transform"></div>
+                    <p className="text-2xl md:text-3xl font-medium text-[var(--text)] relative z-10 leading-snug">
                       "What if strategy and creativity could help these ideas reach the people who need them most?"
                     </p>
                   </div>
@@ -68,90 +73,97 @@ const AboutUsPage = () => {
                   <p>
                     What started as my passion project quickly grew into a platform focused on marketing planning, brand strategy, and digital growth. Built on curiosity, experimentation, and late nights of learning, Reecho Media is driven by a simple belief:
                   </p>
-                  <p className="text-2xl font-black uppercase tracking-wide text-[#0F172A]" style={{ fontFamily: '"Impact", "Bebas Neue", sans-serif' }}>
+                  <p className="text-3xl md:text-4xl font-medium uppercase tracking-tighter text-[var(--text)] pt-4" style={{ fontFamily: 'serif' }}>
                     Great ideas deserve great visibility.
                   </p>
                 </div>
             </motion.div>
 
-            <motion.div variants={fadeInUp} className="w-full lg:w-1/2 relative rounded-[40px] overflow-hidden align-middle border-8 border-white shadow-2xl h-[600px]">
-                <img src="https://res.cloudinary.com/deukqrxtt/image/upload/v1773316552/WhatsApp_Image_2026-03-12_at_5.23.51_PM_mod2cm.jpg" alt="Priyatham - Reecho Media Founder" className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-easeInOut"/>
+            <motion.div variants={fadeInUp} className="w-full lg:w-1/2 relative rounded-[48px] overflow-hidden border border-[var(--border)] shadow-2xl h-[700px]">
+                <img src="https://res.cloudinary.com/deukqrxtt/image/upload/v1773316552/WhatsApp_Image_2026-03-12_at_5.23.51_PM_mod2cm.jpg" alt="Priyatham - Reecho Media Founder" className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-1000 ease-in-out"/>
             </motion.div>
           </div>
 
           {/* We Strongly Follow */}
-          <div className="w-[100vw] relative left-1/2 -translate-x-1/2 mt-32 mb-16 flex flex-col items-center overflow-hidden py-12 px-4">
+          <div className="w-[100vw] relative left-1/2 -translate-x-1/2 mt-40 mb-24 flex flex-col items-center overflow-hidden py-12">
             <motion.h2 
               variants={fadeInUp} 
-              className="text-4xl md:text-6xl lg:text-7xl font-black uppercase tracking-tighter mb-16 text-center text-[#0F172A]" 
-              style={{ fontFamily: '"Impact", "Bebas Neue", sans-serif' }}
+              className="text-4xl md:text-6xl lg:text-7xl font-medium uppercase tracking-tighter mb-20 text-center text-[var(--text)]" 
+              style={{ fontFamily: 'serif' }}
             >
               WE STRONGLY FOLLOW THE WORDS
             </motion.h2>
 
             <div className="relative w-full flex flex-col items-center justify-center py-10">
-               <motion.div variants={fadeInUp} className="w-[110vw] bg-[#FFB703] text-[#0F172A] py-10 md:py-12 rotate-[2deg] flex justify-center items-center z-10 transition-transform hover:scale-105 duration-500 cursor-default shadow-lg">
-                   <p className="text-base md:text-xl lg:text-2xl font-medium uppercase tracking-[0.1em] text-center px-4" style={{ fontFamily: '"Inter", sans-serif' }}>
-                     GREAT IDEAS ARE BORN FROM TRUE PARTNERSHIPS
+               <motion.div variants={fadeInUp} className="w-[110vw] bg-[#FFB703] text-[#0F172A] py-10 md:py-14 rotate-[2deg] flex justify-center items-center z-10 transition-transform hover:scale-105 duration-500 cursor-default shadow-lg">
+                   <p className="text-xl md:text-3xl font-semibold uppercase tracking-widest text-center px-8" style={{ fontFamily: 'serif' }}>
+                     COLLABORATION IS AT THE HEART OF EVERYTHING WE DO
                    </p>
                </motion.div>
-               <motion.div variants={fadeInUp} className="w-[110vw] bg-[#8ECAE6] text-[#0F172A] py-10 md:py-12 rotate-[-1.5deg] flex justify-center items-center z-20 -mt-2 transition-transform hover:scale-105 duration-500 cursor-default shadow-xl">
-                   <p className="text-base md:text-xl lg:text-2xl font-medium uppercase tracking-[0.1em] text-center px-4" style={{ fontFamily: '"Inter", sans-serif' }}>
-                     IMAGINATION THRIVES WITHOUT BOUNDARIES
+               <motion.div variants={fadeInUp} className="w-[110vw] bg-[#8ECAE6] text-[#0F172A] py-10 md:py-14 rotate-[-1.5deg] flex justify-center items-center z-20 -mt-2 transition-transform hover:scale-105 duration-500 cursor-default shadow-xl">
+                   <p className="text-xl md:text-3xl font-semibold uppercase tracking-widest text-center px-8" style={{ fontFamily: 'serif' }}>
+                     THERE ARE NO RULES TO CREATIVITY
                    </p>
                </motion.div>
-               <motion.div variants={fadeInUp} className="w-[110vw] bg-[#F26419] text-white py-10 md:py-12 rotate-[1deg] flex justify-center items-center shadow-2xl z-30 -mt-2 transition-transform hover:scale-105 duration-500 cursor-default">
-                   <p className="text-base md:text-xl lg:text-2xl font-medium uppercase tracking-[0.1em] text-center px-4" style={{ fontFamily: '"Inter", sans-serif' }}>
-                     WE DON'T JUST CREATE, WE CATALYZE IMPACT
+               <motion.div variants={fadeInUp} className="w-[110vw] bg-[#F26419] dark:bg-[#991B32] text-white py-10 md:py-14 rotate-[1deg] flex justify-center items-center shadow-2xl z-30 -mt-4 transition-transform hover:scale-105 duration-500 cursor-default">
+                   <p className="text-xl md:text-3xl font-semibold uppercase tracking-widest text-center px-8" style={{ fontFamily: 'serif' }}>
+                     OUR WORK DOESN'T JUST EXIST - IT DRIVES CHANGE
                    </p>
                </motion.div>
             </div>
           </div>
 
           {/* What We Do */}
-          <div className="flex flex-col-reverse lg:flex-row w-full mt-32 gap-16 lg:gap-24 items-center">
-            <motion.div variants={fadeInUp} className="w-full lg:w-1/2 relative rounded-[40px] overflow-hidden align-middle border-8 border-white shadow-2xl h-auto">
-                <img src="https://res.cloudinary.com/deukqrxtt/image/upload/v1773316556/WhatsApp_Image_2026-03-12_at_5.24.46_PM_dhvswh.jpg" alt="Reecho Media Work" className="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-700 ease-easeInOut"/>
+          <div className="flex flex-col-reverse lg:flex-row w-full mt-48 gap-16 lg:gap-24 items-center">
+            <motion.div variants={fadeInUp} className="w-full lg:w-1/2 relative rounded-[48px] overflow-hidden border border-[var(--border)] shadow-2xl h-auto">
+                <img src="https://res.cloudinary.com/deukqrxtt/image/upload/v1773316556/WhatsApp_Image_2026-03-12_at_5.24.46_PM_dhvswh.jpg" alt="Reecho Media Work" className="w-full h-auto object-cover grayscale hover:grayscale-0 transition-all duration-1000 ease-in-out"/>
             </motion.div>
             
-            <motion.div variants={fadeInUp} className="w-full lg:w-1/2 flex flex-col justify-center space-y-8">
-                <h3 className="text-4xl md:text-6xl font-black uppercase tracking-tight" style={{ fontFamily: '"Impact", "Bebas Neue", sans-serif' }}>
+            <motion.div variants={fadeInUp} className="w-full lg:w-1/2 flex flex-col justify-center space-y-10">
+                <h3 className="text-4xl md:text-7xl font-medium uppercase tracking-tighter" style={{ fontFamily: 'serif' }}>
                     What We Do
                 </h3>
-                <p className="text-xl md:text-2xl text-[#0F172A]/80 font-bold leading-relaxed">
+                <p className="text-xl md:text-2xl text-[var(--text)] opacity-80 font-medium leading-relaxed italic">
                     At Reecho Media, we help brands move beyond ordinary marketing. We focus on smart strategies, meaningful storytelling, and measurable growth.
                 </p>
-                <div className="bg-white p-8 rounded-3xl shadow-xl border border-[#0F172A]/5">
-                  <p className="text-lg font-bold uppercase tracking-widest text-[#C4B5FD] mb-6">Our Work Includes:</p>
-                  <ul className="space-y-4">
-                    {['Strategic Marketing Planning', 'Brand Positioning & Identity', 'Digital Marketing Campaigns', 'Content Strategy', 'Social Media Growth', 'Creative Brand Communication'].map((item, i) => (
-                      <li key={i} className="flex items-center gap-4 text-lg md:text-xl font-medium text-[#0F172A]">
-                        <div className="w-2 h-2 rounded-full bg-[#0F172A]"></div>
+                <div className="bg-[var(--surface)] p-12 rounded-[40px] shadow-2xl border border-[var(--border)]">
+                  <p className="text-xs font-semibold uppercase tracking-[0.4em] text-[var(--brand)] mb-8">OUR CORE ARCHITECTURE</p>
+                  <ul className="space-y-6">
+                    {[
+                      'Strategic Marketing Planning', 
+                      'Brand Positioning & Identity', 
+                      'Digital Marketing Campaigns', 
+                      'Content Strategy', 
+                      'Social Media Growth', 
+                      'Creative Brand Communication'
+                    ].map((item, i) => (
+                      <li key={i} className="flex items-center gap-6 text-xl md:text-2xl font-medium text-[var(--text)] italic">
+                        <span className="w-2 h-2 rounded-full bg-[var(--brand)]"></span>
                         {item}
                       </li>
                     ))}
                   </ul>
                 </div>
-                <p className="text-xl font-bold text-[#0F172A] italic">
+                <p className="text-xl font-semibold text-[var(--brand)] italic">
                   We don't just promote brands — we help them build a lasting presence.
                 </p>
             </motion.div>
           </div>
 
           {/* Vision, Mission & Why Reecho */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-32">
-             <motion.div variants={fadeInUp} className="bg-[#0F172A] text-white p-12 rounded-[40px] shadow-2xl flex flex-col gap-6">
-                <h4 className="text-3xl font-black uppercase tracking-widest text-[#C4B5FD]" style={{ fontFamily: '"Impact", "Bebas Neue", sans-serif' }}>Our Vision</h4>
-                <p className="text-lg font-medium leading-relaxed opacity-90">To empower businesses, creators, and startups with strategic marketing that amplifies their voice and impact.</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-48">
+             <motion.div variants={fadeInUp} className="bg-[var(--text)] text-[var(--bg)] p-12 rounded-[48px] shadow-2xl flex flex-col gap-8 border border-[var(--border)]">
+                <h4 className="text-3xl font-medium uppercase tracking-widest text-[var(--accent)]" style={{ fontFamily: 'serif' }}>Our Vision</h4>
+                <p className="text-xl font-medium leading-relaxed opacity-90 italic">To empower businesses, creators, and startups with strategic marketing that amplifies their voice and impact.</p>
              </motion.div>
-             <motion.div variants={fadeInUp} className="bg-white p-12 rounded-[40px] shadow-2xl flex flex-col gap-6 border border-[#0F172A]/5">
-                <h4 className="text-3xl font-black uppercase tracking-widest text-[#0F172A]" style={{ fontFamily: '"Impact", "Bebas Neue", sans-serif' }}>Our Mission</h4>
-                <p className="text-lg font-medium leading-relaxed text-[#0F172A]/80">To combine creativity, strategy, and technology to help brands grow faster, connect deeper with their audiences, and stand out in a crowded digital world.</p>
+             <motion.div variants={fadeInUp} className="bg-[var(--surface)] p-12 rounded-[48px] shadow-2xl flex flex-col gap-8 border border-[var(--border)]">
+                <h4 className="text-3xl font-medium uppercase tracking-widest text-[var(--brand)]" style={{ fontFamily: 'serif' }}>Our Mission</h4>
+                <p className="text-xl font-medium leading-relaxed text-[var(--text)] opacity-80 italic">To combine creativity, strategy, and technology to help brands grow faster, connect deeper with their audiences, and stand out in a crowded digital world.</p>
              </motion.div>
-             <motion.div variants={fadeInUp} className="bg-[#C4B5FD] p-12 rounded-[40px] shadow-2xl flex flex-col gap-6">
-                <h4 className="text-3xl font-black uppercase tracking-widest text-[#0F172A]" style={{ fontFamily: '"Impact", "Bebas Neue", sans-serif' }}>Why Reecho?</h4>
-                <p className="text-lg font-medium leading-relaxed text-[#0F172A]/90">
-                  The name Reecho represents the power of a message that keeps spreading. When a brand communicates clearly and strategically, its voice doesn't just reach people once — it <span className="font-bold italic">echoes</span>.
+             <motion.div variants={fadeInUp} className="bg-[var(--brand)] p-12 rounded-[48px] shadow-2xl flex flex-col gap-8 text-white">
+                <h4 className="text-3xl font-medium uppercase tracking-widest text-[var(--accent)]" style={{ fontFamily: 'serif' }}>Why Reecho?</h4>
+                <p className="text-xl font-medium leading-relaxed opacity-95 italic">
+                  The name Reecho represents the power of a message that keeps spreading. When a brand communicates clearly and strategically, its voice doesn't just reach people once — it <span className="font-semibold underline decoration-2 underline-offset-4">echoes</span>.
                   <br/><br/>
                   And that's exactly what we help create.
                 </p>
@@ -160,37 +172,32 @@ const AboutUsPage = () => {
         </motion.section>
       </main>
 
+      {/* CTA SECTION */}
       <motion.section 
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, margin: "-100px" }}
         variants={staggerContainer}
-        className="flex flex-col items-center bg-[#F4F4FA]"
+        className="px-6 pb-24"
       >
-        <div className="max-w-[1400px] w-full mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 bg-[#F3E8FF] rounded-none sm:rounded-[32px] overflow-hidden mb-16 relative mt-16">
-          <motion.div variants={{ hidden: { opacity: 0, x: -50 }, visible: { opacity: 1, x: 0, transition: { duration: 0.8, ease: "easeOut" } } }} className="flex flex-col justify-center p-8 md:p-16 lg:p-24 z-10 w-full">
-             <h2 className="text-4xl md:text-[3.5rem] lg:text-[4.5rem] font-black uppercase tracking-tight leading-[0.9] mb-16 text-[#000000]" style={{ fontFamily: '"Impact", "Bebas Neue", sans-serif' }}>
-               BELIEVE IN WHAT WE DO?<br/>
-               COME SAY HI!
+        <div className="max-w-[1600px] mx-auto bg-[var(--surface)] border border-[var(--border)] rounded-[64px] overflow-hidden flex flex-col lg:flex-row shadow-2xl">
+          <motion.div variants={fadeInUp} className="flex flex-col justify-center p-12 md:p-24 z-10 w-full flex-1">
+             <h2 className="text-5xl md:text-7xl font-medium uppercase tracking-tighter leading-none mb-12 text-[var(--text)]" style={{ fontFamily: 'serif' }}>
+               BELIEVE IN<br/>WHAT WE DO?
              </h2>
-
-             <div className="w-full h-[1px] bg-[#000000]/20 mb-8 max-w-sm"></div>
-             
-             <Link to="/contact" className="flex items-center gap-4 text-xl font-medium text-[#000000] hover:text-[#C4B5FD] transition-colors group mb-12 w-fit">
-               Join our journey 
-               <ArrowRight size={24} className="group-hover:translate-x-2 transition-transform" />
+             <Link to="/contact" className="flex items-center gap-4 bg-[var(--brand)] text-white px-10 py-5 rounded-full text-xl font-semibold hover:scale-105 transition-transform group shadow-xl w-fit">
+               Come Say Hi <ArrowRight className="group-hover:translate-x-2 transition-transform" />
              </Link>
-
-             <p className="text-base md:text-lg font-medium text-[#000000]/70 max-w-md leading-relaxed">
+             <p className="mt-12 text-lg md:text-xl font-medium text-[var(--text)] opacity-60 max-w-md italic">
                We love connecting with ambitious founders, passionate creators, and innovative brands. Let's start a conversation and see where it leads!
              </p>
           </motion.div>
 
-          <motion.div variants={{ hidden: { opacity: 0, y: 50 }, visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: "easeOut" } } }} className="relative w-full h-full min-h-[400px] lg:min-h-full">
+          <motion.div variants={fadeInUp} className="relative flex-1 min-h-[500px]">
             <img 
               src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&q=80&w=1200" 
               alt="Team at Coworking Space"
-              className="absolute inset-0 w-full h-full object-cover grayscale opacity-90 mix-blend-multiply"
+              className="absolute inset-0 w-full h-full object-cover grayscale opacity-80"
             />
           </motion.div>
         </div>
