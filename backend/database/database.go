@@ -37,6 +37,8 @@ func DBconnect() {
 		&models.Invoice{},
 		&models.TeamMember{},
 		&models.CalendarEvent{},
+		&models.BoardAccess{},
+		&models.DocAccess{},
 	)
 	fmt.Println(" DB connected successfully....")
 
