@@ -72,30 +72,30 @@ const LandingPage = () => {
           initial="hidden"
           animate="visible"
           variants={staggerContainer}
-          className="z-10 relative w-full text-center flex flex-col items-center justify-center min-h-[45vh] md:min-h-[60vh] pt-12 md:pt-0"
+          className="z-10 relative w-full text-center flex flex-col items-center justify-center min-h-[60vh] md:min-h-[75vh] pt-12 md:pt-0"
         >
-          <div className="flex justify-center items-center relative w-full h-[60px] md:h-[100px] overflow-hidden">
+          <div className="flex justify-center items-center relative w-full min-h-[120px] md:min-h-[160px] overflow-visible">
             <AnimatePresence mode="popLayout">
               <motion.h1 
                 key={currentWordIndex}
-                initial={{ opacity: 0, y: 100 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -100 }}
-                transition={{ duration: 0.7, ease: "easeInOut" }}
-                className="absolute text-[12vw] md:text-[80px] lg:text-[100px] font-medium tracking-tighter uppercase leading-none text-[var(--text)]" 
+                initial={{ opacity: 0, y: 100, rotateX: 45 }}
+                animate={{ opacity: 1, y: 0, rotateX: 0 }}
+                exit={{ opacity: 0, y: -100, rotateX: -45 }}
+                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                className="absolute text-[13vw] md:text-[100px] lg:text-[130px] font-medium tracking-tighter uppercase leading-[0.9] text-[var(--text)]" 
                 style={{ fontFamily: 'serif' }}
               >
                 {heroWords[currentWordIndex]}
               </motion.h1>
             </AnimatePresence>
           </div>
-          <motion.p variants={fadeInUp} className="text-sm md:text-lg font-semibold tracking-widest uppercase mt-8 text-[var(--text-secondary)]">
+          <motion.p variants={fadeInUp} className="text-sm md:text-lg font-medium tracking-widest uppercase mt-12 text-[var(--text-secondary)]">
             WE LEAD WITH CONTENT. WE SCALE WITH DIGITAL.
           </motion.p>
         </motion.div>
 
         {/* Slanted Image Carousel */}
-        <div className="relative w-full overflow-hidden flex flex-col justify-center bg-[var(--surface)] h-[400px] md:h-[600px] pb-10 md:pb-24 z-20 mt-10 md:mt-16 border-y border-[var(--border)]">
+        <div className="relative w-full overflow-hidden flex flex-col justify-center bg-[var(--surface)] h-[450px] md:h-[650px] pb-10 md:pb-24 z-20 mt-4 md:mt-8 border-y border-[var(--border)]">
            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150vw] rotate-[-5deg] md:rotate-[-8deg] pointer-events-none">
              <div className="flex w-fit animate-image-marquee hover:[animation-play-state:paused] gap-4 md:gap-8 px-4 pointer-events-auto items-center h-[550px]">
                {[...dummyImages, ...dummyImages].map((src, i) => (
