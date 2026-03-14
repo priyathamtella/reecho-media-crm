@@ -139,17 +139,18 @@ const AppLayout = ({ children }) => {
     }, []);
 
     return (
-        <div className={`flex h-screen w-screen overflow-hidden transition-colors duration-300 ${isDark ? "bg-slate-900 text-white" : "bg-[#F0F4F8] text-slate-900"}`}>
+        <div className={`flex h-screen w-screen overflow-hidden transition-colors duration-300 bg-[var(--bg)] text-[var(--text)]`}>
 
             {/* ── SIDEBAR ── */}
-            <aside className={`w-[28%] min-w-[220px] max-w-[300px] h-full flex flex-col border-r transition-colors duration-300 ${isDark ? "bg-slate-950 border-slate-800" : "bg-white border-slate-200"} shadow-xl z-20`}>
+            <aside className={`w-[28%] min-w-[220px] max-w-[300px] h-full flex flex-col border-r transition-colors duration-300 bg-[var(--surface)] border-[var(--border)] shadow-xl z-20`}>
 
                 {/* Logo */}
-                <div className={`flex items-center gap-3 px-5 py-4 border-b flex-shrink-0 ${isDark ? "border-slate-800" : "border-slate-100"}`}>
-                    <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-md"><LayoutGrid size={18} /></div>
+                <div className={`flex items-center gap-3 px-5 py-4 border-b flex-shrink-0 border-[var(--border)]`}>
+                    <div className="w-10 h-10 rounded-full overflow-hidden border border-[var(--brand)] bg-white p-0.5 shadow-sm">
+                      <img src="https://res.cloudinary.com/deukqrxtt/image/upload/v1773512203/Untitled_design_pwe49w.png" alt="Reecho Media" className="w-full h-full object-contain rounded-full" />
+                    </div>
                     <div>
-                        <span className={`font-black text-sm tracking-tight ${isDark ? "text-white" : "text-slate-800"}`}>Reecho Media</span>
-                        <p className={`text-[10px] ${isDark ? "text-slate-500" : "text-slate-400"}`}>Workspace CRM</p>
+                        <span className={`font-semibold text-xs tracking-tight text-[var(--text)] opacity-60`} style={{ fontFamily: 'serif' }}>CRM</span>
                     </div>
                 </div>
 
@@ -160,11 +161,11 @@ const AppLayout = ({ children }) => {
                     {userRole !== "client" && (
                         <button
                             onClick={() => { setCurrentPage("boards"); navigate("/dashboard"); }}
-                            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all mb-1 ${currentPage === "boards" && location.pathname === "/dashboard"
-                                ? "bg-indigo-600 text-white shadow-md"
-                                : isDark ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100"}`}
+                            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all mb-1 ${currentPage === "boards" && location.pathname === "/dashboard"
+                                ? "bg-[var(--brand)] text-white shadow-md"
+                                : "text-[var(--text)] hover:bg-[var(--text)]/5"}`}
                         >
-                            <LayoutGrid size={14} className={currentPage === "boards" && location.pathname === "/dashboard" ? "text-white" : "text-indigo-500"} />
+                            <LayoutGrid size={14} className={currentPage === "boards" && location.pathname === "/dashboard" ? "text-white" : "text-[var(--brand)]"} />
                             Board &amp; Document
                         </button>
                     )}
@@ -196,7 +197,7 @@ const AppLayout = ({ children }) => {
 
                     {/* ── AGENCY WORKSPACE ── */}
                     <div>
-                        <div className={`text-[10px] font-black uppercase tracking-widest px-2 mt-4 mb-2 ${isDark ? "text-slate-500" : "text-slate-400"}`}>Agency Workspace</div>
+                        <div className={`text-[10px] font-semibold uppercase tracking-widest px-2 mt-4 mb-2 opacity-50 text-[var(--text)]`}>Agency Workspace</div>
                         {[
                             { page:"overview",  label:"Overview",         Icon:LayoutGrid, roles: ["admin", "member", "client"] },
                             { page:"tasks",     label:"Task Board",       Icon:CheckSquare, roles: ["admin", "member", "client"] },
@@ -210,11 +211,11 @@ const AppLayout = ({ children }) => {
                         .map(({ page, label, Icon }) => (
                             <button key={page}
                                 onClick={() => { setCurrentPage(page); navigate("/dashboard"); }}
-                                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all mb-1 ${currentPage === page && location.pathname === "/dashboard"
-                                    ? "bg-indigo-600 text-white shadow-md"
-                                    : isDark ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100"}`}
+                                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all mb-1 ${currentPage === page && location.pathname === "/dashboard"
+                                    ? "bg-[var(--brand)] text-white shadow-md"
+                                    : "text-[var(--text)] hover:bg-[var(--text)]/5"}`}
                             >
-                                <Icon size={14} className={currentPage === page && location.pathname === "/dashboard" ? "text-white" : "text-indigo-500"} />
+                                <Icon size={14} className={currentPage === page && location.pathname === "/dashboard" ? "text-white" : "text-[var(--brand)]"} />
                                 {label}
                             </button>
                         ))}
@@ -223,27 +224,27 @@ const AppLayout = ({ children }) => {
                 </div>
 
                 {/* ── FOOTER ── */}
-                <div className={`border-t px-3 py-3 space-y-1 flex-shrink-0 ${isDark ? "border-slate-800" : "border-slate-100"}`}>
+                <div className={`border-t px-3 py-3 space-y-1 flex-shrink-0 border-[var(--border)]`}>
                     {/* Dark mode toggle */}
                     <button onClick={() => setIsDark(!isDark)}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors ${isDark ? "text-slate-300 hover:bg-slate-800" : "text-slate-600 hover:bg-slate-100"}`}>
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors text-[var(--text)] hover:bg-[var(--text)]/5`}>
                         <span className="flex items-center gap-2">
-                            {isDark ? <Sun size={14} className="text-amber-400" /> : <Moon size={14} className="text-indigo-500" />}
+                            {isDark ? <Sun size={14} className="text-amber-400" /> : <Moon size={14} className="text-[var(--brand)]" />}
                             {isDark ? "Light Mode" : "Dark Mode"}
                         </span>
-                        <div className={`w-8 h-4 rounded-full relative transition-colors ${isDark ? "bg-indigo-600" : "bg-slate-200"}`}>
+                        <div className={`w-8 h-4 rounded-full relative transition-colors ${isDark ? "bg-[var(--brand)]" : "bg-[var(--border)]"}`}>
                             <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${isDark ? "translate-x-4" : "translate-x-0.5"}`} />
                         </div>
                     </button>
 
                     {/* User */}
-                    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl cursor-pointer ${isDark ? "hover:bg-slate-800" : "hover:bg-slate-100"}`} onClick={() => navigate("/profile")}>
-                        <div className="w-7 h-7 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0">
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl cursor-pointer hover:bg-[var(--text)]/5`} onClick={() => navigate("/profile")}>
+                        <div className="w-7 h-7 bg-[var(--brand)] text-white rounded-full flex items-center justify-center font-semibold text-xs flex-shrink-0">
                             {userName.charAt(0).toUpperCase()}
                         </div>
                         <div className="min-w-0">
-                            <p className={`text-xs font-bold truncate ${isDark ? "text-white" : "text-slate-800"}`}>{userName}</p>
-                            <p className={`text-[10px] truncate ${isDark ? "text-slate-500" : "text-slate-400"}`}>{userEmail}</p>
+                            <p className={`text-xs font-semibold truncate text-[var(--text)]`}>{userName}</p>
+                            <p className={`text-[10px] truncate opacity-50 text-[var(--text)]`}>{userEmail}</p>
                         </div>
                     </div>
 
@@ -255,7 +256,7 @@ const AppLayout = ({ children }) => {
             </aside>
 
             {/* ── CONTENT ── */}
-            <main className="flex-1 h-full overflow-hidden relative">
+            <main className="flex-1 h-full overflow-hidden relative bg-[var(--bg)]">
                 {React.cloneElement(children, { isDark, setIsDark, boards, fetchBoards, docs, fetchDocs, handleCreateDoc, setShowModal, currentPage, setCurrentPage })}
             </main>
 
@@ -263,23 +264,23 @@ const AppLayout = ({ children }) => {
             <AnimatePresence>
                 {showModal && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+                        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4 text-[var(--text)]">
                         <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
                             transition={{ type: "spring", bounce: 0.3 }}
-                            className={`w-full max-w-md rounded-2xl shadow-2xl p-6 border ${isDark ? "bg-slate-900 border-slate-700" : "bg-white border-slate-100"}`}>
+                            className={`w-full max-w-md rounded-2xl shadow-2xl p-6 border bg-[var(--surface)] border-[var(--border)]`}>
                             <div className="flex justify-between items-center mb-4">
-                                <h2 className={`text-xl font-black ${isDark ? "text-white" : "text-slate-900"}`}>New Board</h2>
-                                <button onClick={() => setShowModal(false)} className={`p-1 rounded-lg ${isDark ? "hover:bg-slate-800 text-slate-400" : "hover:bg-slate-100 text-slate-400"}`}><X size={18} /></button>
+                                <h2 className={`text-xl font-semibold`} style={{ fontFamily: 'serif' }}>New Board</h2>
+                                <button onClick={() => setShowModal(false)} className={`p-1 rounded-lg hover:bg-[var(--text)]/5 opacity-50`}><X size={18} /></button>
                             </div>
-                            <p className={`text-sm mb-4 ${isDark ? "text-slate-400" : "text-slate-500"}`}>Give your board a name.</p>
+                            <p className={`text-sm mb-4 opacity-70`}>Give your board a name.</p>
                             <form onSubmit={handleCreate}>
                                 <input autoFocus type="text" placeholder="e.g. Marketing Campaign" value={newTitle} onChange={e => setNewTitle(e.target.value)}
-                                    className={`w-full p-3 rounded-xl border outline-none text-sm font-medium mb-4 ${isDark ? "bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-indigo-500" : "bg-slate-50 border-slate-200 text-slate-900 focus:ring-2 focus:ring-indigo-500"}`} />
+                                    className={`w-full p-3 rounded-xl border outline-none text-sm font-medium mb-4 bg-[var(--bg)] border-[var(--border)] text-[var(--text)] focus:border-[var(--brand)]`} />
                                 <div className="flex gap-3">
                                     <button type="button" onClick={() => setShowModal(false)}
-                                        className={`flex-1 py-2.5 rounded-xl font-bold border text-sm ${isDark ? "border-slate-700 text-slate-300 hover:bg-slate-800" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>Cancel</button>
+                                        className={`flex-1 py-2.5 rounded-xl font-semibold border text-sm border-[var(--border)] text-[var(--text)] hover:bg-[var(--text)]/5`}>Cancel</button>
                                     <button type="submit" disabled={creating}
-                                        className="flex-1 py-2.5 rounded-xl font-bold text-sm bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-2 transition-colors">
+                                        className="flex-1 py-2.5 rounded-xl font-semibold text-sm bg-[var(--brand)] hover:opacity-90 text-white flex items-center justify-center gap-2 transition-all shadow-lg">
                                         {creating ? <Loader2 size={15} className="animate-spin" /> : null} Create Board
                                     </button>
                                 </div>
