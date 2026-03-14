@@ -42,7 +42,7 @@ const Profile = () => {
 
   const handleLogout = () => {
     localStorage.clear(); // This clears userName, userEmail, and token
-    navigate("/login");
+    navigate("/");
   };
 
   if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;

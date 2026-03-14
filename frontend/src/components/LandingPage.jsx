@@ -72,7 +72,7 @@ const LandingPage = () => {
           initial="hidden"
           animate="visible"
           variants={staggerContainer}
-          className="z-10 relative w-full text-center flex flex-col items-center justify-center min-h-[60vh] md:min-h-[85vh]"
+          className="z-10 relative w-full text-center flex flex-col items-center justify-center min-h-[45vh] md:min-h-[60vh] pt-12 md:pt-0"
         >
           <div className="flex justify-center items-center relative w-full h-[60px] md:h-[100px] overflow-hidden">
             <AnimatePresence mode="popLayout">
@@ -94,9 +94,10 @@ const LandingPage = () => {
           </motion.p>
         </motion.div>
 
-        {/* Slanted Image Carousel */}
-        <div className="relative w-full overflow-hidden flex flex-col justify-center bg-[var(--surface)] h-[400px] md:h-[600px] pb-10 md:pb-24 z-20 mt-10 md:mt-16 border-y border-[var(--border)]">
-           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150vw] rotate-[-5deg] md:rotate-[-8deg] pointer-events-none">
+        {/* Clean Slanted Infinite Carousel (Stretched across) */}
+        <div className="relative w-full overflow-visible flex flex-col justify-center bg-[#FAF9F6] h-[400px] md:h-[600px] pb-10 md:pb-24 z-20 -mt-6 md:-mt-12">
+           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150vw] rotate-[-5deg] md:rotate-[-8deg] pointer-events-none group">
+             {/* The Track. Notice: group-hover:duration-[1000s] forces the animation essentially to pause cleanly alongside Tailwind */}
              <div className="flex w-fit animate-image-marquee hover:[animation-play-state:paused] gap-4 md:gap-8 px-4 pointer-events-auto items-center h-[550px]">
                {[...dummyImages, ...dummyImages].map((src, i) => (
                  <div 

@@ -23,6 +23,10 @@ func SetupRoutes(app *fiber.App) {
 	api.Get("/boards/:id", controllers.GetBoard)        // Get specific board
 	api.Post("/boards/:id/sync", controllers.SyncBoard) // Update/Sync board state
 	api.Delete("/boards/:id", controllers.DeleteBoard)  // Delete a board
+	api.Post("/boards/:id/share", controllers.ShareBoard)                   // Admin shares board with members
+	api.Get("/boards/:id/shared-members", controllers.GetBoardSharedMembers) // Which members have access
+	api.Post("/boards/:id/submit-review", controllers.SubmitBoardForReview) // Member submits board for review
+	api.Post("/boards/:id/approve", controllers.ApproveBoardReview)         // Admin approves board
 
 	// Document Endpoints
 	api.Get("/docs", controllers.GetAllDocuments)                     // List all docs
@@ -31,6 +35,13 @@ func SetupRoutes(app *fiber.App) {
 	api.Put("/docs/:id", controllers.UpdateDocument)                  // Update doc
 	api.Delete("/docs/:id", controllers.DeleteDocument)               // Delete doc
 	api.Get("/boards/:boardId/docs", controllers.GetDocumentsByBoard) // Docs linked to board
+	api.Post("/docs/:id/share", controllers.ShareDoc)                         // Admin shares doc with members
+	api.Get("/docs/:id/shared-members", controllers.GetDocSharedMembers)      // Which members have access
+	api.Post("/docs/:id/submit-review", controllers.SubmitDocForReview)       // Member submits doc for review
+	api.Post("/docs/:id/approve", controllers.ApproveDocReview)               // Admin approves doc
+
+	// Team member list for dropdowns
+	api.Get("/members-list", controllers.GetTeamMembersList)
 
 	// CRM Endpoints
 	api.Get("/clients", controllers.GetClients)

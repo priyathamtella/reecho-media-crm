@@ -14,6 +14,8 @@ type Document struct {
 	Content       string     `gorm:"type:text;default:''" json:"Content"` // HTML rich text
 	OwnerID       uuid.UUID  `gorm:"type:uuid;not null" json:"OwnerID"`
 	LinkedBoardID *uuid.UUID `gorm:"type:uuid" json:"LinkedBoardID"` // optional board link
+	ReviewStatus  string     `gorm:"default:''" json:"ReviewStatus"`   // '' | 'in_review' | 'approved'
+	ReviewerName  string     `gorm:"default:''" json:"ReviewerName"`   // name of member who submitted
 	CreatedAt     time.Time  `json:"CreatedAt"`
 	UpdatedAt     time.Time  `json:"UpdatedAt"`
 }

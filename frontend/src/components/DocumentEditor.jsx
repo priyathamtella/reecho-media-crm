@@ -6,8 +6,9 @@ import {
     Save, Loader2, ArrowLeft, Link as LinkIcon, FileText,
     Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight,
     List, ListOrdered, Type, Heading1, Heading2, Minus, ExternalLink,
-    Trash2, X, Check
+    Trash2, X, Check, Share2, Send
 } from "lucide-react";
+import ShareModal from "./ShareModal";
 
 const API = "http://localhost:5050/api";
 
@@ -22,9 +23,13 @@ const DocumentEditor = () => {
     const [loading, setLoading] = useState(true);
     const [isDark] = useState(() => localStorage.getItem("theme") === "dark");
     const [showLinkModal, setShowLinkModal] = useState(false);
+    const [showShareModal, setShowShareModal] = useState(false);
     const [boards, setBoards] = useState([]);
     const [linkedBoardId, setLinkedBoardId] = useState(null);
     const [editingTitle, setEditingTitle] = useState(false);
+    const [submittingReview, setSubmittingReview] = useState(false);
+    const [reviewSent, setReviewSent] = useState(false);
+    const userRole = localStorage.getItem("userRole") || "admin";
     const editorRef = useRef(null);
     const saveTimer = useRef(null);
 
@@ -110,6 +115,23 @@ const DocumentEditor = () => {
         } catch { setSaveStatus("error"); }
     };
 
+    // ── SUBMIT FOR REVIEW (member only) ──────────────
+    const handleSubmitReview = async () => {
+        setSubmittingReview(true);
+        try {
+            const token = localStorage.getItem("token");
+            await triggerSave();
+            // Best-effort notify (endpoint gracefully fails if not available)
+            await axios.post(`${API}/docs/${id}/submit-review`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            }).catch(() => {});
+            setReviewSent(true);
+            setTimeout(() => setReviewSent(false), 3000);
+        } finally {
+            setSubmittingReview(false);
+        }
+    };
+
     // ── DELETE ───────────────────────────────────
     const handleDelete = async () => {
         if (!window.confirm("Delete this document? This cannot be undone.")) return;
@@ -134,7 +156,7 @@ const DocumentEditor = () => {
             {/* ── TOPBAR ── */}
             <div className={`flex items-center justify-between px-6 py-3 border-b flex-shrink-0 ${dm ? "bg-slate-950 border-slate-800" : "bg-white border-slate-200"} shadow-sm`}>
                 <div className="flex items-center gap-3">
-                    <button onClick={() => navigate("/")} className={`p-1.5 rounded-lg transition-colors ${dm ? "hover:bg-slate-800 text-slate-400" : "hover:bg-slate-100 text-slate-500"}`}>
+                    <button onClick={() => navigate(-1)} className={`p-1.5 rounded-lg transition-colors ${dm ? "hover:bg-slate-800 text-slate-400" : "hover:bg-slate-100 text-slate-500"}`}>
                         <ArrowLeft size={16} />
                     </button>
                     <FileText size={18} className="text-indigo-500" />
@@ -171,6 +193,29 @@ const DocumentEditor = () => {
                             className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-200 transition-colors">
                             <ExternalLink size={11} /> Board: {linkedBoard.Title.slice(0, 16)}
                         </Link>
+                    )}
+
+                    {/* Share (admin only) */}
+                    {userRole === "admin" && (
+                        <button onClick={() => setShowShareModal(true)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${dm ? "border-slate-700 text-slate-300 hover:bg-slate-800" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+                            <Share2 size={13} /> Share
+                        </button>
+                    )}
+
+                    {/* Submit for Review (member only) */}
+                    {userRole === "member" && (
+                        <button
+                            onClick={handleSubmitReview}
+                            disabled={submittingReview || reviewSent}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                                reviewSent
+                                    ? "bg-emerald-500 text-white"
+                                    : "bg-violet-600 hover:bg-violet-700 text-white"
+                            }`}>
+                            {submittingReview ? <Loader2 size={13} className="animate-spin" /> : reviewSent ? <Check size={13} /> : <Send size={13} />}
+                            {reviewSent ? "Sent to Admin!" : "Submit for Review"}
+                        </button>
                     )}
 
                     {/* Link to board button */}
@@ -284,6 +329,15 @@ const DocumentEditor = () => {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* ── SHARE MODAL (admin only) ── */}
+            <ShareModal
+                isOpen={showShareModal}
+                onClose={() => setShowShareModal(false)}
+                resourceType="doc"
+                resourceId={id}
+                isDark={dm}
+            />
         </div>
     );
 };
