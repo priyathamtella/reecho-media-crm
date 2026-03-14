@@ -146,8 +146,12 @@ const AppLayout = ({ children }) => {
 
                 {/* Logo */}
                 <div className={`flex items-center gap-3 px-5 py-4 border-b flex-shrink-0 border-[var(--border)]`}>
-                    <div className="w-10 h-10 rounded-full overflow-hidden border border-[var(--brand)] bg-white p-0.5 shadow-sm">
-                      <img src="https://res.cloudinary.com/deukqrxtt/image/upload/v1773512203/Untitled_design_pwe49w.png" alt="Reecho Media" className="w-full h-full object-contain rounded-full" />
+                    <div className="w-10 h-10 flex items-center justify-center">
+                      <img 
+                        src="https://res.cloudinary.com/dxcygn064/image/upload/v1773517532/Untitled_design__1_-removebg-preview_h65kii.png" 
+                        alt="Reecho Media" 
+                        className="w-full h-full object-contain dark:invert transition-all duration-300 scale-300" 
+                      />
                     </div>
                     <div>
                         <span className={`font-semibold text-xs tracking-tight text-[var(--text)] opacity-60`} style={{ fontFamily: 'serif' }}>CRM</span>

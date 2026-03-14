@@ -138,9 +138,9 @@ const WorkCategoryPage = () => {
                 className={`w-full overflow-hidden cursor-pointer group rounded-[40px] border border-[var(--border)] shadow-xl ${idx % 3 === 0 ? "md:col-span-2 aspect-video" : "aspect-square"}`}
               >
                 {item.type === 'video' ? (
-                    <video src={item.src} autoPlay loop muted playsInline className="w-full h-full object-cover transition-transform duration-700 grayscale group-hover:grayscale-0 group-hover:scale-105" />
+                    <video src={item.src} autoPlay loop muted playsInline className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                 ) : (
-                    <img src={item.src} alt={data.title} className="w-full h-full object-cover transition-transform duration-700 grayscale group-hover:grayscale-0 group-hover:scale-105" />
+                    <img src={item.src} alt={data.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                 )}
               </motion.div>
             ))}
@@ -160,7 +160,7 @@ const WorkCategoryPage = () => {
              </Link>
           </motion.div>
           <div className="flex-1 min-h-[400px]">
-            <img src="https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=1200" alt="Equipment" className="w-full h-full object-cover grayscale opacity-80" />
+            <img src="https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=1200" alt="Equipment" className="w-full h-full object-cover opacity-80" />
           </div>
         </div>
       </motion.section>

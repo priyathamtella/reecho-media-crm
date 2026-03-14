@@ -29,8 +29,12 @@ const Navbar = () => {
   return (
     <nav className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 ${scrolled ? 'bg-[var(--nav-bg)] border-b border-[var(--border)] backdrop-blur-md py-4' : 'bg-transparent py-6'}`}>
       <div className="max-w-[1600px] mx-auto px-6 lg:px-12 flex justify-between items-center text-[var(--text)]">
-        <Link to="/" className="flex items-center overflow-hidden rounded-full border border-[var(--border)] bg-white p-1 shadow-md hover:scale-110 transition-transform">
-          <img src="https://res.cloudinary.com/deukqrxtt/image/upload/v1773512203/Untitled_design_pwe49w.png" alt="Reecho Media" className="h-10 w-10 object-contain rounded-full" />
+        <Link to="/" className="flex items-center hover:scale-110 transition-transform">
+          <img 
+            src="https://res.cloudinary.com/dxcygn064/image/upload/v1773517532/Untitled_design__1_-removebg-preview_h65kii.png" 
+            alt="Reecho Media" 
+            className="h-16 w-auto object-contain dark:invert transition-all duration-300 scale-150" 
+          />
         </Link>
 
         {/* Desktop Links */}
@@ -49,28 +53,28 @@ const Navbar = () => {
                    <h4 className="font-semibold text-sm uppercase tracking-widest text-[var(--text)] opacity-80">OUR PHOTOGRAPHY</h4>
                    <Link to="/work/our-photography" className="text-xs font-semibold underline underline-offset-4 text-[var(--text)] hover:text-[var(--brand)] transition-colors uppercase w-fit">EXPLORE</Link>
                    <Link to="/work/our-photography" className="mt-2 w-full aspect-[4/3] rounded-2xl overflow-hidden group/image block border border-[var(--border)]">
-                     <img src="https://images.unsplash.com/photo-1542204165-65bf26472b9b?auto=format&fit=crop&q=80&w=400" className="w-full h-full object-cover group-hover/image:scale-105 transition-transform duration-500 ease-in-out grayscale group-hover/image:grayscale-0" alt="Photography" />
+                     <img src="https://images.unsplash.com/photo-1542204165-65bf26472b9b?auto=format&fit=crop&q=80&w=400" className="w-full h-full object-cover group-hover/image:scale-105 transition-transform duration-500 ease-in-out" alt="Photography" />
                    </Link>
                  </div>
                  <div className="flex flex-col gap-4">
                    <h4 className="font-semibold text-sm uppercase tracking-widest text-[var(--text)] opacity-80">OUR VIDEOGRAPHY</h4>
                    <Link to="/work/our-videography" className="text-xs font-semibold underline underline-offset-4 text-[var(--text)] hover:text-[var(--brand)] transition-colors uppercase w-fit">EXPLORE</Link>
                    <Link to="/work/our-videography" className="mt-2 w-full aspect-[4/3] rounded-2xl overflow-hidden group/image relative block border border-[var(--border)]">
-                     <video src="https://vjs.zencdn.net/v/oceans.mp4" autoPlay loop muted playsInline className="w-full h-full object-cover group-hover/image:scale-105 transition-transform duration-500 ease-in-out grayscale group-hover/image:grayscale-0" />
+                     <video src="https://vjs.zencdn.net/v/oceans.mp4" autoPlay loop muted playsInline className="w-full h-full object-cover group-hover/image:scale-105 transition-transform duration-500 ease-in-out" />
                    </Link>
                  </div>
                  <div className="flex flex-col gap-4">
                    <h4 className="font-semibold text-sm uppercase tracking-widest text-[var(--text)] opacity-80">UI / UX</h4>
                    <Link to="/work/ui-ux" className="text-xs font-semibold underline underline-offset-4 text-[var(--text)] hover:text-[var(--brand)] transition-colors uppercase w-fit">EXPLORE</Link>
                    <Link to="/work/ui-ux" className="mt-2 w-full aspect-[4/3] rounded-2xl overflow-hidden group/image block border border-[var(--border)]">
-                     <img src="https://images.unsplash.com/photo-1621619856624-42fd193a0661?auto=format&fit=crop&q=80&w=400" className="w-full h-full object-cover group-hover/image:scale-105 transition-transform duration-500 ease-in-out grayscale group-hover/image:grayscale-0" alt="UI/UX" />
+                     <img src="https://images.unsplash.com/photo-1621619856624-42fd193a0661?auto=format&fit=crop&q=80&w=400" className="w-full h-full object-cover group-hover/image:scale-105 transition-transform duration-500 ease-in-out" alt="UI/UX" />
                    </Link>
                  </div>
                  <div className="flex flex-col gap-4">
                    <h4 className="font-semibold text-sm uppercase tracking-widest text-[var(--text)] opacity-80">3D ANIMATION</h4>
                    <Link to="/work/3d-animation" className="text-xs font-semibold underline underline-offset-4 text-[var(--text)] hover:text-[var(--brand)] transition-colors uppercase w-fit">EXPLORE</Link>
                    <Link to="/work/3d-animation" className="mt-2 w-full aspect-[4/3] rounded-2xl overflow-hidden group/image block border border-[var(--border)]">
-                     <img src="https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?auto=format&fit=crop&q=80&w=400" className="w-full h-full object-cover group-hover/image:scale-105 transition-transform duration-500 ease-in-out grayscale group-hover/image:grayscale-0" alt="CGI" />
+                     <img src="https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?auto=format&fit=crop&q=80&w=400" className="w-full h-full object-cover group-hover/image:scale-105 transition-transform duration-500 ease-in-out" alt="CGI" />
                    </Link>
                  </div>
                </div>
