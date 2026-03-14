@@ -69,7 +69,7 @@ const LandingPage = () => {
       {/* Hero Section */}
       <section className="pt-24 md:pt-0 relative flex flex-col items-center bg-[var(--bg)] overflow-visible">
         <motion.div 
-          initial="hidden"
+          initial="visible"
           animate="visible"
           variants={staggerContainer}
           className="z-10 relative w-full text-center flex flex-col items-center justify-center min-h-[60vh] md:min-h-[75vh] pt-12 md:pt-0"
@@ -95,15 +95,15 @@ const LandingPage = () => {
         </motion.div>
 
         {/* Slanted Image Carousel */}
-        <div className="relative w-full overflow-hidden flex flex-col justify-center bg-[var(--surface)] h-[450px] md:h-[650px] pb-10 md:pb-24 z-20 mt-4 md:mt-8 border-y border-[var(--border)]">
-           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150vw] rotate-[-5deg] md:rotate-[-8deg] pointer-events-none">
-             <div className="flex w-fit animate-image-marquee hover:[animation-play-state:paused] gap-4 md:gap-8 px-4 pointer-events-auto items-center h-[550px]">
+        <div className="relative w-full overflow-visile flex flex-col justify-center bg-[var(--surface)] h-full md:h-[650px] pb-10 md:pb-24 z-20 mt-4 md:mt-8 border-y border-[var(--border)]">
+           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150vw] rotate-[-12deg] pointer-events-none">
+             <div className="flex w-fit animate-image-marquee hover:[animation-play-state:paused] gap-4 md:gap-8 px-4 pointer-events-auto items-center h-[600px]">
                {[...dummyImages, ...dummyImages].map((src, i) => (
                  <div 
                    key={i} 
-                   className="shrink-0 w-[240px] h-[320px] md:w-[400px] md:h-[480px] rounded-[32px] overflow-hidden shadow-2xl transition-all duration-300 hover:scale-[1.05] hover:z-50 bg-[var(--surface)] relative cursor-pointer border border-[var(--border)]"
+                   className="shrink-0 w-[240px] h-[320px] md:w-[420px] md:h-[520px] rounded-[60px] overflow-hidden shadow-2xl transition-all duration-300 hover:scale-[1.05] hover:z-50 bg-[var(--surface)] relative cursor-pointer border border-[var(--border)]"
                  >
-                   <img src={src} alt={`Portfolio item ${i}`} className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500" />
+                   <img src={src} alt={`Portfolio item ${i}`} className="w-full h-full object-cover transition-all duration-500" />
                    <div className="absolute bottom-6 left-6 right-6">
                       <div className="bg-[var(--brand)] px-5 py-3 rounded-full inline-block font-semibold text-base text-white shadow-lg transform -rotate-2">
                          {i % 2 === 0 ? "BEYOND LIMITS" : "SEE YOU SOON"}
@@ -150,7 +150,7 @@ const LandingPage = () => {
 
       {/* Marquee LOGO Section */}
       <section className="py-16 border-y border-[var(--border)] overflow-hidden bg-[var(--bg)] relative z-20">
-        <div className="flex gap-20 animate-marquee whitespace-nowrap opacity-40 grayscale hover:grayscale-0 transition-opacity duration-500 items-center">
+        <div className="flex gap-20 animate-marquee whitespace-nowrap opacity-60 hover:opacity-100 transition-opacity duration-500 items-center">
           {[...dummyLogos, ...dummyLogos].map((src, i) => (
              <img key={i} src={src} className="h-8 md:h-12 object-contain mx-8" alt="Partner Logo" />
           ))}
@@ -205,7 +205,7 @@ const LandingPage = () => {
       >
         <div className="flex flex-col md:flex-row gap-10">
           <motion.div variants={fadeInUp} className="group relative rounded-[48px] overflow-hidden aspect-square md:w-1/2 shadow-2xl border border-[var(--border)]">
-            <img src={dummyImages[0]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 grayscale group-hover:grayscale-0" alt="Featured Work" />
+            <img src={dummyImages[0]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="Featured Work" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A]/90 to-transparent flex flex-col justify-end p-12 text-white">
               <h3 className="text-5xl font-medium uppercase mb-6 tracking-tight" style={{ fontFamily: 'serif' }}>ASTE CAFE</h3>
               <p className="text-sm font-semibold tracking-widest uppercase bg-[#991B1B] w-fit px-8 py-3 rounded-full shadow-lg">Branding & Strategy</p>
@@ -213,7 +213,7 @@ const LandingPage = () => {
           </motion.div>
           <div className="flex flex-col gap-10 md:w-1/2">
             <motion.div variants={fadeInUp} className="group relative rounded-[48px] overflow-hidden flex-1 shadow-2xl border border-[var(--border)] min-h-[300px]">
-              <img src={dummyImages[1]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 grayscale group-hover:grayscale-0" alt="Campaign" />
+              <img src={dummyImages[1]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="Campaign" />
               <div className="absolute inset-0 bg-[#0F172A]/10 group-hover:bg-[#0F172A]/40 flex items-center justify-center transition-all duration-500">
                 <div className="bg-[#EAB308] p-8 rounded-full text-[#0F172A] shadow-2xl scale-90 group-hover:scale-100 transition-transform duration-500">
                   <Play size={40} fill="currentColor" />
@@ -251,7 +251,7 @@ const LandingPage = () => {
             <img 
               src="https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?auto=format&fit=crop&q=80&w=1200" 
               alt="Creative Consultation"
-              className="w-full h-full object-cover grayscale opacity-90 transition-all duration-1000 hover:grayscale-0 hover:scale-105"
+              className="w-full h-full object-cover opacity-90 transition-all duration-1000 hover:scale-105"
             />
           </div>
         </div>
