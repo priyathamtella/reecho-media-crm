@@ -72,7 +72,7 @@ const LandingPage = () => {
           initial="hidden"
           animate="visible"
           variants={staggerContainer}
-          className="z-10 relative w-full text-center flex flex-col items-center justify-center min-h-[60vh] md:min-h-[85vh]"
+          className="z-10 relative w-full text-center flex flex-col items-center justify-center min-h-[45vh] md:min-h-[60vh] pt-12 md:pt-0"
         >
           <div className="flex justify-center items-center relative w-full h-[60px] md:h-[100px] overflow-hidden">
             <AnimatePresence mode="popLayout">

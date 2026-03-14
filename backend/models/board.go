@@ -19,6 +19,8 @@ type Board struct {
 	ClientName     string          `gorm:"default:''" json:"ClientName"`
 	ClientStatus   string          `gorm:"default:'Pending'" json:"ClientStatus"`
 	ClientFeedback string          `gorm:"type:text;default:''" json:"ClientFeedback"`
+	ReviewStatus   string          `gorm:"default:''" json:"ReviewStatus"`  // '' | 'in_review' | 'approved'
+	ReviewerName   string          `gorm:"default:''" json:"ReviewerName"`  // member who submitted
 	CreatedAt      time.Time       `json:"CreatedAt"`
 	UpdatedAt      time.Time       `json:"UpdatedAt"`
 }

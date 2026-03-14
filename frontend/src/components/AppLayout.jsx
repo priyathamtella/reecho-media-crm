@@ -5,8 +5,9 @@ import axios from "axios";
 import {
     LayoutGrid, Plus, LogOut, Sun, Moon, ChevronRight,
     Loader2, FolderOpen, X, Trash2, FileText,
-    CheckSquare, Calendar, Users, Briefcase, CreditCard, ExternalLink
+    CheckSquare, Calendar, Users, Briefcase, CreditCard, ExternalLink, Share2
 } from "lucide-react";
+import ShareModal from "./ShareModal";
 
 const API = "http://localhost:5050/api";
 
@@ -22,6 +23,8 @@ const AppLayout = ({ children }) => {
     const [newTitle, setNewTitle] = useState("");
     const [creating, setCreating] = useState(false);
     const [creatingDoc, setCreatingDoc] = useState(false);
+    // Share modal state
+    const [shareTarget, setShareTarget] = useState(null); // { type: 'board'|'doc', id: string }
     
     const userName = localStorage.getItem("userName") || "User";
     const userEmail = localStorage.getItem("userEmail") || "";
@@ -114,8 +117,26 @@ const AppLayout = ({ children }) => {
 
     const handleLogout = () => {
         localStorage.removeItem("token"); localStorage.removeItem("userName"); localStorage.removeItem("userEmail");
-        navigate("/login");
+        localStorage.removeItem("loginTime");
+        navigate("/");
     };
+
+    // ── AUTO SIGN-OUT AFTER 24 HOURS ──────────────────────
+    useEffect(() => {
+        const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours in ms
+
+        const checkSession = () => {
+            const loginTime = localStorage.getItem("loginTime");
+            if (!loginTime) return;
+            if (Date.now() - parseInt(loginTime, 10) >= SESSION_DURATION) {
+                handleLogout();
+            }
+        };
+
+        checkSession(); // check immediately on mount
+        const interval = setInterval(checkSession, 60 * 1000); // check every minute
+        return () => clearInterval(interval);
+    }, []);
 
     return (
         <div className={`flex h-screen w-screen overflow-hidden transition-colors duration-300 bg-[var(--bg)] text-[var(--text)]`}>
@@ -147,6 +168,31 @@ const AppLayout = ({ children }) => {
                             <LayoutGrid size={14} className={currentPage === "boards" && location.pathname === "/dashboard" ? "text-white" : "text-[var(--brand)]"} />
                             Board &amp; Document
                         </button>
+                    )}
+
+                    {/* ── QUICK CREATE (for admin + member) ── */}
+                    {(userRole === "admin" || userRole === "member") && (
+                        <div className="flex gap-1.5">
+                            <button
+                                onClick={() => setShowModal(true)}
+                                title="New Board"
+                                className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
+                                    isDark ? "border-slate-700 text-slate-400 hover:bg-slate-800" : "border-slate-200 text-slate-500 hover:bg-slate-50"
+                                }`}
+                            >
+                                <Plus size={11} /> Board
+                            </button>
+                            <button
+                                onClick={handleCreateDoc}
+                                title="New Document"
+                                disabled={creatingDoc}
+                                className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
+                                    isDark ? "border-slate-700 text-slate-400 hover:bg-slate-800" : "border-slate-200 text-slate-500 hover:bg-slate-50"
+                                }`}
+                            >
+                                {creatingDoc ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />} Doc
+                            </button>
+                        </div>
                     )}
 
                     {/* ── AGENCY WORKSPACE ── */}
@@ -243,6 +289,15 @@ const AppLayout = ({ children }) => {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* ── SHARE MODAL ── */}
+            <ShareModal
+                isOpen={!!shareTarget}
+                onClose={() => setShareTarget(null)}
+                resourceType={shareTarget?.type}
+                resourceId={shareTarget?.id}
+                isDark={isDark}
+            />
         </div>
     );
 };

@@ -23,6 +23,7 @@ const Login = () => {
         localStorage.setItem("userName", response.data.user.name);
         localStorage.setItem("userEmail", response.data.user.email);
         localStorage.setItem("userRole", response.data.user.role || "admin");
+        localStorage.setItem("loginTime", Date.now().toString());
         navigate('/welcome');
       }
     } catch (err) {
