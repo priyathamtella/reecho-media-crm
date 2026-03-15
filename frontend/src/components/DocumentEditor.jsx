@@ -26,9 +26,12 @@ const DocumentEditor = () => {
     const [showShareModal, setShowShareModal] = useState(false);
     const [boards, setBoards] = useState([]);
     const [linkedBoardId, setLinkedBoardId] = useState(null);
+    const [tasks, setTasks] = useState([]);
+    const [linkedTaskId, setLinkedTaskId] = useState(null);
     const [editingTitle, setEditingTitle] = useState(false);
     const [submittingReview, setSubmittingReview] = useState(false);
     const [reviewSent, setReviewSent] = useState(false);
+    const [canEdit, setCanEdit] = useState(false);
     const userRole = localStorage.getItem("userRole") || "admin";
     const editorRef = useRef(null);
     const saveTimer = useRef(null);
@@ -37,43 +40,56 @@ const DocumentEditor = () => {
 
     // ── FETCH DOC ───────────────────────────────
     useEffect(() => {
-        const fetchDoc = async () => {
+        const fetchDocAndRelated = async () => {
             try {
                 const token = localStorage.getItem("token");
-                const res = await axios.get(`${API}/docs/${id}`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                setDoc(res.data);
-                setTitle(res.data.Title);
-                setLinkedBoardId(res.data.LinkedBoardID || null);
+                const headers = { Authorization: `Bearer ${token}` };
+                
+                // Fetch Doc
+                const res = await axios.get(`${API}/docs/${id}?t=${Date.now()}`, { headers });
+                const dData = res.data.doc || res.data;
+                setDoc(dData);
+                setTitle(dData.title);
+                setLinkedBoardId(dData.linkedBoardId || null);
+                setLinkedTaskId(dData.linkedTaskId || null);
+                
                 if (editorRef.current) {
-                    editorRef.current.innerHTML = res.data.Content || "<p>Start writing your document here...</p>";
+                    editorRef.current.innerHTML = dData.content || "<p>Start writing your document here...</p>";
                 }
+                
+                // Permissions
+                const role = localStorage.getItem("userRole");
+                const permission = res.data.permission || "viewer";
+                if (role === "admin" || permission === "editor") {
+                    setCanEdit(true);
+                } else {
+                    setCanEdit(false);
+                }
+                
+                // Related data
+                const [rBoards, rTasks] = await Promise.all([
+                    axios.get(`${API}/boards`, { headers }),
+                    axios.get(`${API}/tasks`, { headers })
+                ]);
+                setBoards(rBoards.data || []);
+                setTasks(rTasks.data || []);
+                
                 setLoading(false);
             } catch (err) {
                 if (err.response?.status === 401) navigate("/login");
                 if (err.response?.status === 404) navigate("/");
             }
         };
-        fetchDoc();
+        fetchDocAndRelated();
     }, [id, navigate]);
 
-    // ── FETCH BOARDS (for linking) ───────────────
-    useEffect(() => {
-        const fetchBoards = async () => {
-            const token = localStorage.getItem("token");
-            const res = await axios.get(`${API}/boards`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setBoards(res.data || []);
-        };
-        fetchBoards();
-    }, []);
+
 
     // ── AUTO-SAVE ────────────────────────────────
-    const triggerSave = useCallback((overrideTitle) => {
+    const triggerSave = useCallback((overrideTitle, isImmediate = false) => {
         if (saveTimer.current) clearTimeout(saveTimer.current);
-        saveTimer.current = setTimeout(async () => {
+        
+        const saveOperation = async () => {
             setSaveStatus("saving");
             try {
                 const token = localStorage.getItem("token");
@@ -82,14 +98,21 @@ const DocumentEditor = () => {
                     title: overrideTitle ?? title,
                     content,
                     linkedBoardId: linkedBoardId || "",
+                    linkedTaskId: linkedTaskId || "",
                 }, { headers: { Authorization: `Bearer ${token}` } });
                 setSaveStatus("saved");
                 setTimeout(() => setSaveStatus("idle"), 2500);
             } catch {
                 setSaveStatus("error");
             }
-        }, 900);
-    }, [id, title, linkedBoardId]);
+        };
+
+        if (isImmediate) {
+            saveOperation();
+        } else {
+            saveTimer.current = setTimeout(saveOperation, 900);
+        }
+    }, [id, title, linkedBoardId, linkedTaskId]);
 
     // ── TOOLBAR COMMANDS ─────────────────────────
     const execCmd = (command, value = null) => {
@@ -99,16 +122,19 @@ const DocumentEditor = () => {
     };
 
     // ── LINK TO BOARD ────────────────────────────
-    const handleLink = async (boardId) => {
-        setLinkedBoardId(boardId);
+    const handleLink = async (type, linkId) => {
+        if (type === "board") setLinkedBoardId(linkId);
+        else if (type === "task") setLinkedTaskId(linkId);
+
         setShowLinkModal(false);
-        // Save immediately with new link
         setSaveStatus("saving");
         try {
             const token = localStorage.getItem("token");
             const content = editorRef.current?.innerHTML || "";
             await axios.put(`${API}/docs/${id}`, {
-                title, content, linkedBoardId: boardId || "",
+                title, content, 
+                linkedBoardId: type === 'board' ? (linkId || "") : (linkedBoardId || ""),
+                linkedTaskId: type === 'task' ? (linkId || "") : (linkedTaskId || ""),
             }, { headers: { Authorization: `Bearer ${token}` } });
             setSaveStatus("saved");
             setTimeout(() => setSaveStatus("idle"), 2000);
@@ -136,10 +162,12 @@ const DocumentEditor = () => {
     const handleDelete = async () => {
         if (!window.confirm("Delete this document? This cannot be undone.")) return;
         const token = localStorage.getItem("token");
-        await axios.delete(`${API}/docs/${id}`, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-        navigate("/");
+        try {
+            await axios.delete(`${API}/docs/${id}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            navigate("/dashboard");
+        } catch { alert("Failed to delete document."); }
     };
 
     if (loading) return (
@@ -162,20 +190,20 @@ const DocumentEditor = () => {
                     <FileText size={18} className="text-indigo-500" />
 
                     {/* Title */}
-                    {editingTitle ? (
+                    {editingTitle && canEdit ? (
                         <div className="flex items-center gap-2">
                             <input
                                 autoFocus
                                 className={`text-base font-bold outline-none border-b ${dm ? "bg-transparent border-indigo-400 text-white" : "bg-transparent border-indigo-500 text-slate-900"}`}
                                 value={title}
                                 onChange={e => setTitle(e.target.value)}
-                                onBlur={() => { setEditingTitle(false); triggerSave(title); }}
-                                onKeyDown={e => { if (e.key === "Enter") { setEditingTitle(false); triggerSave(title); } }}
+                                onBlur={() => { setEditingTitle(false); triggerSave(title, true); }}
+                                onKeyDown={e => { if (e.key === "Enter") { setEditingTitle(false); triggerSave(title, true); } }}
                             />
-                            <button onClick={() => { setEditingTitle(false); triggerSave(title); }} className="text-emerald-500"><Check size={14} /></button>
+                            <button onClick={() => { setEditingTitle(false); triggerSave(title, true); }} className="text-emerald-500"><Check size={14} /></button>
                         </div>
                     ) : (
-                        <button onClick={() => setEditingTitle(true)} className={`text-base font-bold hover:opacity-70 transition-opacity ${dm ? "text-white" : "text-slate-900"}`}>
+                        <button onClick={() => canEdit && setEditingTitle(true)} className={`text-base font-bold transition-opacity ${dm ? "text-white" : "text-slate-900"} ${canEdit ? "hover:opacity-70" : ""}`}>
                             {title || "Untitled"}
                         </button>
                     )}
@@ -187,12 +215,30 @@ const DocumentEditor = () => {
                         {saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "✓ Saved" : saveStatus === "error" ? "Save failed" : "·"}
                     </span>
 
+                    {doc?.reviewStatus === "in_review" && (
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 text-amber-500 rounded-lg text-xs font-bold border border-amber-500/20">
+                             Under Review
+                        </div>
+                    )}
+                    {doc?.reviewStatus === "approved" && (
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 text-emerald-500 rounded-lg text-xs font-bold border border-emerald-500/20">
+                             Approved ✓
+                        </div>
+                    )}
+
                     {/* Linked board badge */}
                     {linkedBoard && (
-                        <Link to={`/boards/${linkedBoard.ID}`}
-                            className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-200 transition-colors">
-                            <ExternalLink size={11} /> Board: {linkedBoard.Title.slice(0, 16)}
+                        <Link to={`/boards/${linkedBoard.id}`}
+                            className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-500/10 text-indigo-500 rounded-lg text-xs font-bold hover:bg-indigo-500/20 transition-colors">
+                            <ExternalLink size={11} /> Board: {linkedBoard.title.slice(0, 16)}
                         </Link>
+                    )}
+
+                    {/* Linked task badge */}
+                    {linkedTaskId && (
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 text-amber-500 rounded-lg text-xs font-bold">
+                             Task: {tasks.find(t => String(t.id) === String(linkedTaskId))?.title.slice(0, 16) || "Linked"}
+                        </div>
                     )}
 
                     {/* Share (admin only) */}
@@ -207,83 +253,108 @@ const DocumentEditor = () => {
                     {userRole === "member" && (
                         <button
                             onClick={handleSubmitReview}
-                            disabled={submittingReview || reviewSent}
+                            disabled={submittingReview || reviewSent || doc?.reviewStatus === "approved"}
                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                                reviewSent
+                                reviewSent || doc?.reviewStatus === "approved"
                                     ? "bg-emerald-500 text-white"
                                     : "bg-violet-600 hover:bg-violet-700 text-white"
                             }`}>
-                            {submittingReview ? <Loader2 size={13} className="animate-spin" /> : reviewSent ? <Check size={13} /> : <Send size={13} />}
-                            {reviewSent ? "Sent to Admin!" : "Submit for Review"}
+                            {submittingReview ? <Loader2 size={13} className="animate-spin" /> : (reviewSent || doc?.reviewStatus === "approved") ? <Check size={13} /> : <Send size={13} />}
+                            {doc?.reviewStatus === "approved" ? "Approved" : reviewSent ? "Sent to Admin!" : "Submit for Review"}
+                        </button>
+                    )}
+
+                    {/* Approve button (admin only) */}
+                    {userRole === "admin" && doc?.reviewStatus === "in_review" && (
+                        <button
+                            onClick={async () => {
+                                try {
+                                    const token = localStorage.getItem("token");
+                                    await axios.post(`${API}/docs/${id}/approve`, {}, { headers: { Authorization: `Bearer ${token}` } });
+                                    setDoc(prev => ({ ...prev, reviewStatus: "approved" }));
+                                    alert("Document Approved!");
+                                } catch { alert("Action failed"); }
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors">
+                            <Check size={13} /> Approve Doc
                         </button>
                     )}
 
                     {/* Link to board button */}
-                    <button onClick={() => setShowLinkModal(true)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${dm ? "border-slate-700 text-slate-300 hover:bg-slate-800" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
-                        <LinkIcon size={13} /> {linkedBoard ? "Change Link" : "Link to Board"}
-                    </button>
+                    {canEdit && (
+                        <button onClick={() => setShowLinkModal(true)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${dm ? "border-slate-700 text-slate-300 hover:bg-slate-800" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+                            <LinkIcon size={13} /> Link Board/Task
+                        </button>
+                    )}
+
+                    {/* View Only badge */}
+                    {!canEdit && (
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 text-amber-500 rounded-lg text-xs font-bold">
+                            Viewer Mode
+                        </div>
+                    )}
 
                     {/* Save */}
-                    <button onClick={() => triggerSave()}
-                        className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
-                        {saveStatus === "saving" ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Save
-                    </button>
+                    {canEdit && (
+                        <button onClick={() => triggerSave()}
+                            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
+                            {saveStatus === "saving" ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Save
+                        </button>
+                    )}
 
                     {/* Delete */}
-                    <button onClick={handleDelete} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors">
-                        <Trash2 size={15} />
-                    </button>
+                    {canEdit && (
+                        <button onClick={handleDelete} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors">
+                            <Trash2 size={15} />
+                        </button>
+                    )}
                 </div>
             </div>
 
             {/* ── FORMATTING TOOLBAR ── */}
-            <div className={`flex flex-wrap items-center gap-0.5 px-6 py-2 border-b flex-shrink-0 ${dm ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"}`}>
-                {/* Text style */}
-                <ToolGroup>
-                    <FmtBtn icon={<Bold size={14} />} onClick={() => execCmd("bold")} title="Bold" dm={dm} />
-                    <FmtBtn icon={<Italic size={14} />} onClick={() => execCmd("italic")} title="Italic" dm={dm} />
-                    <FmtBtn icon={<Underline size={14} />} onClick={() => execCmd("underline")} title="Underline" dm={dm} />
-                </ToolGroup>
-                <Sep dm={dm} />
-                {/* Headings */}
-                <ToolGroup>
-                    <FmtBtn icon={<Heading1 size={14} />} onClick={() => execCmd("formatBlock", "h1")} title="Heading 1" dm={dm} />
-                    <FmtBtn icon={<Heading2 size={14} />} onClick={() => execCmd("formatBlock", "h2")} title="Heading 2" dm={dm} />
-                    <FmtBtn icon={<Type size={14} />} onClick={() => execCmd("formatBlock", "p")} title="Paragraph" dm={dm} />
-                </ToolGroup>
-                <Sep dm={dm} />
-                {/* Lists */}
-                <ToolGroup>
-                    <FmtBtn icon={<List size={14} />} onClick={() => execCmd("insertUnorderedList")} title="Bullet List" dm={dm} />
-                    <FmtBtn icon={<ListOrdered size={14} />} onClick={() => execCmd("insertOrderedList")} title="Numbered List" dm={dm} />
-                </ToolGroup>
-                <Sep dm={dm} />
-                {/* Alignment */}
-                <ToolGroup>
-                    <FmtBtn icon={<AlignLeft size={14} />} onClick={() => execCmd("justifyLeft")} title="Left" dm={dm} />
-                    <FmtBtn icon={<AlignCenter size={14} />} onClick={() => execCmd("justifyCenter")} title="Center" dm={dm} />
-                    <FmtBtn icon={<AlignRight size={14} />} onClick={() => execCmd("justifyRight")} title="Right" dm={dm} />
-                </ToolGroup>
-                <Sep dm={dm} />
-                {/* Font color */}
-                <ToolGroup>
-                    {["#1e293b", "#6366f1", "#ef4444", "#10b981", "#f59e0b", "#ec4899"].map(c => (
-                        <button key={c} onClick={() => execCmd("foreColor", c)}
-                            title="Font color"
-                            className="w-5 h-5 rounded-full border-2 border-white shadow hover:scale-125 transition-transform"
-                            style={{ backgroundColor: c }} />
-                    ))}
-                </ToolGroup>
-                <Sep dm={dm} />
-                {/* Divider */}
-                <FmtBtn icon={<Minus size={14} />} onClick={() => execCmd("insertHorizontalRule")} title="Divider" dm={dm} />
-            </div>
+            {canEdit && (
+                <div className={`flex flex-wrap items-center gap-0.5 px-6 py-2 border-b flex-shrink-0 ${dm ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"}`}>
+                    <ToolGroup>
+                        <FmtBtn icon={<Bold size={14} />} onClick={() => execCmd("bold")} title="Bold" dm={dm} />
+                        <FmtBtn icon={<Italic size={14} />} onClick={() => execCmd("italic")} title="Italic" dm={dm} />
+                        <FmtBtn icon={<Underline size={14} />} onClick={() => execCmd("underline")} title="Underline" dm={dm} />
+                    </ToolGroup>
+                    <Sep dm={dm} />
+                    <ToolGroup>
+                        <FmtBtn icon={<Heading1 size={14} />} onClick={() => execCmd("formatBlock", "h1")} title="Heading 1" dm={dm} />
+                        <FmtBtn icon={<Heading2 size={14} />} onClick={() => execCmd("formatBlock", "h2")} title="Heading 2" dm={dm} />
+                        <FmtBtn icon={<Type size={14} />} onClick={() => execCmd("formatBlock", "p")} title="Paragraph" dm={dm} />
+                    </ToolGroup>
+                    <Sep dm={dm} />
+                    <ToolGroup>
+                        <FmtBtn icon={<List size={14} />} onClick={() => execCmd("insertUnorderedList")} title="Bullet List" dm={dm} />
+                        <FmtBtn icon={<ListOrdered size={14} />} onClick={() => execCmd("insertOrderedList")} title="Numbered List" dm={dm} />
+                    </ToolGroup>
+                    <Sep dm={dm} />
+                    <ToolGroup>
+                        <FmtBtn icon={<AlignLeft size={14} />} onClick={() => execCmd("justifyLeft")} title="Left" dm={dm} />
+                        <FmtBtn icon={<AlignCenter size={14} />} onClick={() => execCmd("justifyCenter")} title="Center" dm={dm} />
+                        <FmtBtn icon={<AlignRight size={14} />} onClick={() => execCmd("justifyRight")} title="Right" dm={dm} />
+                    </ToolGroup>
+                    <Sep dm={dm} />
+                    <ToolGroup>
+                        {["#1e293b", "#6366f1", "#ef4444", "#10b981", "#f59e0b", "#ec4899"].map(c => (
+                            <button key={c} onClick={() => execCmd("foreColor", c)}
+                                title="Font color"
+                                className="w-5 h-5 rounded-full border-2 border-white shadow hover:scale-125 transition-transform"
+                                style={{ backgroundColor: c }} />
+                        ))}
+                    </ToolGroup>
+                    <Sep dm={dm} />
+                    <FmtBtn icon={<Minus size={14} />} onClick={() => execCmd("insertHorizontalRule")} title="Divider" dm={dm} />
+                </div>
+            )}
 
             {/* ── EDITOR full bleed ── */}
             <div
                 ref={editorRef}
-                contentEditable
+                contentEditable={canEdit}
                 suppressContentEditableWarning
                 onInput={() => triggerSave()}
                 className={`flex-1 overflow-y-auto outline-none px-16 py-12 text-base leading-9 ${dm ? "text-slate-100" : "text-slate-800"}`}
@@ -299,7 +370,7 @@ const DocumentEditor = () => {
         [contenteditable]:empty:before { content: "Start writing..."; opacity: 0.35; }
       `}</style>
 
-            {/* ── LINK BOARD MODAL ── */}
+            {/* ── LINK BOARD/TASK MODAL ── */}
             <AnimatePresence>
                 {showLinkModal && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -308,20 +379,34 @@ const DocumentEditor = () => {
                             transition={{ type: "spring", bounce: 0.3 }}
                             className={`w-full max-w-sm rounded-2xl shadow-2xl p-6 border ${dm ? "bg-slate-900 border-slate-700" : "bg-white border-slate-100"}`}>
                             <div className="flex justify-between items-center mb-4">
-                                <h3 className={`font-black text-base ${dm ? "text-white" : "text-slate-900"}`}>Link to Board</h3>
+                                <h3 className={`font-black text-base ${dm ? "text-white" : "text-slate-900"}`}>Link to Board or Task</h3>
                                 <button onClick={() => setShowLinkModal(false)} className="text-slate-400"><X size={18} /></button>
                             </div>
-                            <p className={`text-xs mb-3 ${dm ? "text-slate-400" : "text-slate-500"}`}>Connect this document to a board for quick navigation.</p>
-                            <div className="space-y-1 max-h-56 overflow-y-auto mb-4">
-                                {/* Unlink option */}
-                                <button onClick={() => handleLink(null)}
-                                    className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-colors ${!linkedBoardId ? "bg-indigo-600 text-white" : (dm ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100")}`}>
-                                    None (no link)
+
+                            <p className={`text-[10px] font-bold uppercase text-slate-400 mb-2 mt-4`}>Link to Board</p>
+                            <div className="space-y-1 max-h-40 overflow-y-auto mb-4">
+                                <button onClick={() => handleLink("board", null)}
+                                    className={`w-full text-left px-3 py-2 rounded-xl text-xs transition-colors ${!linkedBoardId ? "bg-indigo-600 text-white" : (dm ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100")}`}>
+                                    None
                                 </button>
                                 {boards.map(b => (
-                                    <button key={b.ID} onClick={() => handleLink(b.ID)}
-                                        className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-colors ${String(linkedBoardId) === String(b.ID) ? "bg-indigo-600 text-white" : (dm ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100")}`}>
-                                        {b.Title}
+                                    <button key={b.id} onClick={() => handleLink("board", b.id)}
+                                        className={`w-full text-left px-3 py-2 rounded-xl text-xs transition-colors ${String(linkedBoardId) === String(b.id) ? "bg-indigo-600 text-white" : (dm ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100")}`}>
+                                        {b.title}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <p className={`text-[10px] font-bold uppercase text-slate-400 mb-2`}>Link to Task</p>
+                            <div className="space-y-1 max-h-40 overflow-y-auto">
+                                <button onClick={() => handleLink("task", null)}
+                                    className={`w-full text-left px-3 py-2 rounded-xl text-xs transition-colors ${!linkedTaskId ? "bg-indigo-600 text-white" : (dm ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100")}`}>
+                                    None
+                                </button>
+                                {tasks.map(t => (
+                                    <button key={t.id} onClick={() => handleLink("task", t.id)}
+                                        className={`w-full text-left px-3 py-2 rounded-xl text-xs transition-colors ${String(linkedTaskId) === String(t.id) ? "bg-indigo-600 text-white" : (dm ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100")}`}>
+                                        {t.title}
                                     </button>
                                 ))}
                             </div>

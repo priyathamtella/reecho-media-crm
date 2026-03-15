@@ -47,6 +47,8 @@ export default function CrmView({ currentPage, setCurrentPage }) {
   const [team, setTeam] = useState([]);
   const [calEvents, setCalEvents] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [boards, setBoards] = useState([]);
+  const [documents, setDocuments] = useState([]);
 
   const today = new Date();
   const [calYear, setCalYear] = useState(today.getFullYear());
@@ -73,7 +75,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
   // Client page filter
   const [clientFilter, setClientFilter] = useState("All");
 
-  const [fTask,   setFTask]   = useState({ title:"", tag:"Content", client:"", due_date:"", assignees:"", status:"To Do" });
+  const [fTask,   setFTask]   = useState({ title:"", tag:"Content", client:"", due_date:"", assignees:"", status:"To Do", linked_board_id: "", linked_doc_id: "" });
   const [fClient, setFClient] = useState({ name:"", email:"", industry:"", package:"Full Service", status:"Active", monthly_value:"", initials:"", color:"av-purple" });
   const [fTeam,   setFTeam]   = useState({ name:"", email:"", role:"", initials:"", color:"av-blue", working_on:"", tasks_num:"0", tasks_done:"0", clients_num:"0" });
   const [fCal,    setFCal]    = useState({ title:"", client:"", platform:"instagram", date:"" });
@@ -93,18 +95,22 @@ export default function CrmView({ currentPage, setCurrentPage }) {
 
   const fetchAll = async () => {
     try {
-      const [rc, rt, rtm, rce, ri] = await Promise.all([
+      const [rc, rt, rtm, rce, ri, rb, rd] = await Promise.all([
         axios.get(`${API}/clients`, auth()),
         axios.get(`${API}/tasks`, auth()),
         axios.get(`${API}/team`, auth()),
         axios.get(`${API}/calendar`, auth()),
         axios.get(`${API}/invoices`, auth()),
+        axios.get(`${API}/boards`, auth()),
+        axios.get(`${API}/docs`, auth()),
       ]);
       setClients(rc.data || []);
       setTasks(rt.data || []);
       setTeam(rtm.data || []);
       setCalEvents(rce.data || []);
       setInvoices(ri.data || []);
+      setBoards(rb.data || []);
+      setDocuments(rd.data || []);
     } catch (e) { console.error(e); }
   };
 
@@ -1128,33 +1134,55 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                       <div className="card-body">
                         {clientInvs.length===0&&<div style={{color:"var(--muted)",fontSize:"12px",textAlign:"center",padding:"20px"}}>No invoices yet</div>}
                         {clientInvs.map(i=>(
-                          <div key={i.ID} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid var(--border)"}}>
+                          <div key={i.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid var(--border)"}}>
                             <div>
-                              <div style={{fontWeight:"600",fontSize:"12px"}}>{i.invoice_id||`#INV-${i.ID}`}</div>
+                              <div style={{fontWeight:"600",fontSize:"12px"}}>{i.invoiceId||`#INV-${i.id}`}</div>
                               <div style={{fontSize:"10px",color:"var(--muted)"}}>{i.service} &middot; {i.date}</div>
                             </div>
                             <div style={{textAlign:"right"}}>
-                              <div style={{fontFamily:"'Clash Display'",fontWeight:"700",fontSize:"13px"}}>₹{(i.amount||0).toLocaleString("en-IN")}</div>
-                              <span className={`status-badge ${i.status==="Paid"?"status-active":i.status==="Overdue"?"status-review":"status-paused"}`} style={{fontSize:"10px"}}><span className="status-dot"></span>{i.status}</span>
+                               <div style={{fontFamily:"'Clash Display'",fontWeight:"700",fontSize:"13px"}}>₹{(i.amount||0).toLocaleString("en-IN")}</div>
+                               <span className={`status-badge ${i.status==="Paid"?"status-active":i.status==="Overdue"?"status-review":"status-paused"}`} style={{fontSize:"10px"}}><span className="status-dot"></span>{i.status}</span>
                             </div>
                           </div>
                         ))}
                       </div>
                     </div>
 
-                    {/* Scheduled posts */}
-                    {clientEvts.length>0&&(
-                      <div className="card-main" style={{gridColumn:"1/-1"}}>
-                        <div className="card-header"><div className="card-title">📱 Scheduled Posts</div></div>
-                        <div className="card-body" style={{display:"flex",flexWrap:"wrap",gap:"8px"}}>
-                          {clientEvts.map(e=>(
-                            <div key={e.ID} style={{padding:"6px 12px",borderRadius:"8px",background:`${PLATFORM_COLORS[e.platform]||"#a78bfa"}22`,color:PLATFORM_COLORS[e.platform]||"#a78bfa",fontSize:"12px"}}>
-                              {e.platform.charAt(0).toUpperCase()+e.platform.slice(1)} · {e.title} · {e.date}
-                            </div>
-                          ))}
+                    {/* Storyboards & Documents */}
+                    <div className="card-main" style={{gridColumn:"1/-1"}}>
+                        <div className="card-header"><div className="card-title">🎨 Storyboards & Documents</div></div>
+                        <div className="card-body">
+                          <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(240px, 1fr))", gap:"12px"}}>
+                             {boards.filter(b => b.clientName === c.name || (b.title && b.title.toLowerCase().includes(c.name.toLowerCase()))).slice(0, 6).map(board => (
+                               <div key={board.id} onClick={() => navigate(`/boards/${board.id}`)}
+                                 style={{padding:"12px", border:"1px solid var(--border)", borderRadius:"10px", cursor:"pointer", background:"var(--surface)", display:"flex", alignItems:"center", gap:"10px"}}>
+                                 <div style={{width:"32px", height:"32px", borderRadius:"6px", background:"var(--accent)", display:"flex", alignItems:"center", justifyContent:"center", color:"white"}}>🎨</div>
+                                 <div style={{flex:1, minWidth:0}}>
+                                   <div style={{fontSize:"12px", fontWeight:"700", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"}}>{board.title}</div>
+                                   <div style={{fontSize:"10px", color:"var(--muted)"}}>{board.reviewStatus === 'approved' ? '✓ Approved' : 'Review Required'}</div>
+                                 </div>
+                               </div>
+                             ))}
+                             {documents.filter(d => (d.title && (d.title.toLowerCase().includes(c.name.toLowerCase()) || d.ownerId === c.email))).slice(0, 6).map(doc => (
+                               <div key={doc.id} onClick={() => navigate(`/docs/${doc.id}`)}
+                                 style={{padding:"12px", border:"1px solid var(--border)", borderRadius:"10px", cursor:"pointer", background:"var(--surface)", display:"flex", alignItems:"center", gap:"10px"}}>
+                                 <div style={{width:"32px", height:"32px", borderRadius:"6px", background:"#10b981", display:"flex", alignItems:"center", justifyContent:"center", color:"white"}}>📄</div>
+                                 <div style={{flex:1, minWidth:0}}>
+                                   <div style={{fontSize:"12px", fontWeight:"700", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"}}>{doc.title}</div>
+                                   <div style={{fontSize:"10px", color:"var(--muted)"}}>{doc.reviewStatus === 'approved' ? '✓ Approved' : 'In Review'}</div>
+                                 </div>
+                               </div>
+                             ))}
+                             {(boards.filter(b => b.clientName === c.name || (b.title && b.title.toLowerCase().includes(c.name.toLowerCase()))).length === 0 && 
+                               documents.filter(d => (d.title && (d.title.toLowerCase().includes(c.name.toLowerCase()) || d.ownerId === c.email))).length === 0) && (
+                               <div style={{gridColumn:"1/-1", textAlign:"center", padding:"10px", fontSize:"11px", color:"var(--muted)"}}>No boards or documents shared yet.</div>
+                             )}
+                          </div>
+                          <div style={{marginTop:"12px", textAlign:"center"}}>
+                            <button className="btn btn-ghost" style={{fontSize:"11px"}} onClick={() => setCurrentPage("boards")}>View All Boards &amp; Documents →</button>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                    </div>
                   </div>
                 </div>
               );
@@ -1187,6 +1215,21 @@ export default function CrmView({ currentPage, setCurrentPage }) {
               </select>
             </Field>
             <Field label="Due Date"><input style={inputSt} type="date" value={editTask?editTask.due_date:fTask.due_date} onChange={e=>editTask?setEditTask({...editTask,due_date:e.target.value}):setFTask({...fTask,due_date:e.target.value})} /></Field>
+            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px"}}>
+              <Field label="Link to Board">
+                <select style={inputSt} value={editTask ? editTask.linked_board_id : fTask.linked_board_id} onChange={e => editTask ? setEditTask({...editTask, linked_board_id: e.target.value}) : setFTask({...fTask, linked_board_id: e.target.value})}>
+                  <option value="">None</option>
+                  {boards.map(b => <option key={b.ID} value={b.ID}>{b.title || "Untitled Board"}</option>)}
+                </select>
+              </Field>
+              <Field label="Link to Document">
+                <select style={inputSt} value={editTask ? editTask.linked_doc_id : fTask.linked_doc_id} onChange={e => editTask ? setEditTask({...editTask, linked_doc_id: e.target.value}) : setFTask({...fTask, linked_doc_id: e.target.value})}>
+                  <option value="">None</option>
+                  {documents.map(d => <option key={d.ID} value={d.ID}>{d.title || "Untitled Document"}</option>)}
+                </select>
+              </Field>
+            </div>
+
             <Field label="Assign Members">
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px",maxHeight:"160px",overflowY:"auto",padding:"2px"}}>
                 {team.length===0 && <div style={{fontSize:"12px",color:"var(--muted)",gridColumn:"1/-1"}}>No team members yet</div>}
