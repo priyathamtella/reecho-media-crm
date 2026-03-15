@@ -8,26 +8,28 @@ import (
 
 type Client struct {
 	gorm.Model
-	UserID       string `json:"user_id"`
+	UserID       string `json:"userId"`
 	Name         string `json:"name"`
 	Email        string `json:"email"`
 	Industry     string `json:"industry"`
 	Package      string `json:"package"`
-	Status       string `json:"status"` // Active, Review, Paused
-	MonthlyValue int    `json:"monthly_value"`
+	Status       string `json:"status"`
+	MonthlyValue int    `json:"monthlyValue"`
 	Initials     string `json:"initials"`
 	Color        string `json:"color"`
 }
 
 type Task struct {
 	gorm.Model
-	UserID    string `json:"user_id"`
-	Client    string `json:"client"`
-	Title     string `json:"title"`
-	Tag       string `json:"tag"`    // Content, Design, Ads, SEO
-	Status    string `json:"status"` // To Do, In Progress, In Review, Done
-	DueDate   string `json:"due_date"`
-	Assignees string `json:"assignees"`
+	UserID        string `json:"userId"`
+	Client        string `json:"client"`
+	Title         string `json:"title"`
+	Tag           string `json:"tag"`
+	Status        string `json:"status"`
+	DueDate       string `json:"dueDate"`
+	Assignees     string `json:"assignees"`
+	LinkedBoardID string `json:"linkedBoardId"`
+	LinkedDocID   string `json:"linkedDocId"`
 }
 
 func SplitAssignees(s string) []string {
@@ -46,31 +48,31 @@ func SplitAssignees(s string) []string {
 
 type Invoice struct {
 	gorm.Model
-	UserID    string `json:"user_id"`
-	InvoiceID string `json:"invoice_id"`
-	Client    string `json:"client"` // Can be client name or member name
+	UserID    string `json:"userId"`
+	InvoiceID string `json:"invoiceId"`
+	Client    string `json:"client"`
 	Service   string `json:"service"`
 	Amount    int    `json:"amount"`
 	Date      string `json:"date"`
-	Status    string `json:"status"`   // Paid, Pending, Overdue, Cancelled
-	Type          string `json:"type"`     // 'client' (Admin -> Client) or 'payout' (Member -> Admin)
-	Sender        string `json:"sender"`   // Email of who raised it
-	DeclineReason string `json:"decline_reason"`
+	Status    string `json:"status"`
+	Type      string `json:"type"`
+	Sender    string `json:"sender"`
+	DeclineReason string `json:"declineReason"`
 }
 
 type TeamMember struct {
 	gorm.Model
-	UserID     string `json:"user_id"`
+	UserID     string `json:"userId"`
 	Name       string `json:"name"`
 	Email      string `json:"email"`
 	Role       string `json:"role"`
 	Initials   string `json:"initials"`
 	Color      string `json:"color"`
-	TasksNum   int    `json:"tasks_num"`
-	TasksDone  int    `json:"tasks_done"`
-	ClientsNum int    `json:"clients_num"`
+	TasksNum   int    `json:"tasksNum"`
+	TasksDone  int    `json:"tasksDone"`
+	ClientsNum int    `json:"clientsNum"`
 	Progress   int    `json:"progress"`
-	WorkingOn  string `json:"working_on"`
+	WorkingOn  string `json:"workingOn"`
 }
 
 type CalendarEvent struct {

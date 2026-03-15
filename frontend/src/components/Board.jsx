@@ -7,8 +7,10 @@ import {
   Trash2, Image as ImageIcon, CloudUpload, Loader2,
   Sun, Moon, Projector, X, PenTool, MousePointer2, Eraser,
   Upload, Link, Cloud, StickyNote, Smile, ZoomIn, ZoomOut,
-  Play, Pause, Edit3, Check, Hand
+  Play, Pause, Edit3, Check, Hand, ArrowLeft, Share2, FileText, ExternalLink
 } from "lucide-react";
+
+import ShareModal from "./ShareModal";
 
 // ─────────────────────────────────────────────
 //  EMOJI STICKERS
@@ -24,6 +26,7 @@ const Board = () => {
   // --- REFS ---
   const itemsRef = useRef([]);
   const titleRef = useRef("Untitled Board");
+  const lastSavedRef = useRef(""); // To track last saved state for optimization
 
   // --- STATE ---
   const [boardTitle, setBoardTitle] = useState("Loading...");
@@ -61,6 +64,12 @@ const Board = () => {
   const [dragPan, setDragPan] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [documents, setDocuments] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [canEdit, setCanEdit] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewSent, setReviewSent] = useState(false);
 
   // Keep refs in sync with state so event handlers always see latest values
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
@@ -165,12 +174,12 @@ const Board = () => {
   // ── 1. PARSER ──────────────────────────────
   const parseBoardData = (fullState) => {
     if (!fullState) return [];
-    if (typeof fullState === "object") return fullState.items || [];
+    if (typeof fullState === "object") return Array.isArray(fullState) ? fullState : (fullState.items || []);
     if (typeof fullState === "string") {
       try {
         const parsed = JSON.parse(fullState);
         if (typeof parsed === "string") return parseBoardData(parsed);
-        return parsed.items || [];
+        return Array.isArray(parsed) ? parsed : (parsed.items || []);
       } catch (e) { return []; }
     }
     return [];
@@ -183,58 +192,160 @@ const Board = () => {
   }, [items, boardTitle]);
 
   const saveToBackend = useCallback(async () => {
-    if (!isLoaded) return;
+    if (!isLoaded || !canEdit) return;
+    
+    // Optimization: Check if state actually changed
+    const currentState = JSON.stringify(itemsRef.current);
+    if (currentState === lastSavedRef.current && boardTitle === titleRef.current) {
+        return;
+    }
+
     const token = localStorage.getItem("token");
     setSaveStatus("saving");
     try {
       await axios.post(`http://localhost:5050/api/boards/${id}/sync`,
-        { Title: titleRef.current, fullState: JSON.stringify({ items: itemsRef.current }) },
+        { 
+          title: boardTitle, 
+          fullState: JSON.stringify({ items: itemsRef.current }),
+          reviewStatus: boardData?.reviewStatus,
+          linkedTaskId: boardData?.linkedTaskId,
+          linkedDocId: boardData?.linkedDocId 
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setSaveStatus("saved");
+      lastSavedRef.current = currentState;
+      titleRef.current = boardTitle;
       setTimeout(() => setSaveStatus("idle"), 2000);
     } catch { setSaveStatus("error"); }
-  }, [id, isLoaded]);
+  }, [id, isLoaded, canEdit, boardTitle, boardData]);
 
   // ── 3. FETCH ─────────────────────────────────
   useEffect(() => {
-    const fetchBoard = async () => {
+    const fetchBoardAndTasks = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await axios.get(`http://localhost:5050/api/boards/${id}?t=${Date.now()}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setBoardData(res.data);
-        setBoardTitle(res.data.Title || "Untitled Board");
-        const loadedItems = parseBoardData(res.data.fullState);
+        const headers = { Authorization: `Bearer ${token}` };
+        
+        // Fetch Board
+        const res = await axios.get(`http://localhost:5050/api/boards/${id}?t=${Date.now()}`, { headers });
+        const bData = res.data.board || res.data; // fallback for safety
+        setBoardData(bData);
+        setBoardTitle(bData.title || "Untitled Board");
+        const loadedItems = parseBoardData(bData.fullState);
         setItems(loadedItems);
         itemsRef.current = loadedItems;
+        lastSavedRef.current = JSON.stringify(loadedItems);
+        titleRef.current = bData.title || "Untitled Board";
         setIsLoaded(true);
+
+        // Determine permissions
+        const role = localStorage.getItem("userRole");
+        const permission = res.data.permission || "viewer";
+        if (role === "admin" || permission === "editor") {
+          setCanEdit(true);
+        } else {
+          setCanEdit(false);
+        }
+
+        // Fetch Tasks & Docs (only for editors/admins/members)
+        if (role === "admin" || role === "member") {
+          const [tasksRes, docsRes] = await Promise.all([
+            axios.get(`http://localhost:5050/api/tasks`, { headers }),
+            axios.get(`http://localhost:5050/api/docs`, { headers })
+          ]);
+          setTasks(tasksRes.data || []);
+          setDocuments(docsRes.data || []);
+        }
       } catch (err) {
         if (err.response?.status === 401) navigate("/login");
       }
     };
-    fetchBoard();
+    fetchBoardAndTasks();
   }, [id, navigate]);
+
+  const handleLinkTask = async (taskId) => {
+    const token = localStorage.getItem("token");
+    try {
+      await axios.post(`http://localhost:5050/api/boards/${id}/sync`, 
+        { title: boardTitle, linkedTaskId: parseInt(taskId) || 0 },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setBoardData(prev => ({ ...prev, linkedTaskId: parseInt(taskId) || 0 }));
+      alert("Linked task updated!");
+    } catch (e) { alert("Failed to link task."); }
+  };
+
+  const handleLinkDoc = async (docId) => {
+    const token = localStorage.getItem("token");
+    try {
+      await axios.post(`http://localhost:5050/api/boards/${id}/sync`, 
+        { title: boardTitle, linkedDocId: docId || "" },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setBoardData(prev => ({ ...prev, linkedDocId: docId || "" }));
+      alert("Linked document updated!");
+    } catch (e) { alert("Failed to link document."); }
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm("Delete this board? This cannot be undone.")) return;
+    const token = localStorage.getItem("token");
+    try {
+      await axios.delete(`http://localhost:5050/api/boards/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      navigate("/dashboard");
+    } catch (e) { alert("Failed to delete board."); }
+  };
+
+  const handleSubmitReview = async () => {
+    setSubmittingReview(true);
+    const token = localStorage.getItem("token");
+    try {
+      await axios.post(`http://localhost:5050/api/boards/${id}/submit-review`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setReviewSent(true);
+    } catch (e) { alert("Failed to submit review."); }
+    finally { setSubmittingReview(false); }
+  };
+
+  const handleApprove = async () => {
+    const token = localStorage.getItem("token");
+    try {
+      await axios.post(`http://localhost:5050/api/boards/${id}/approve`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setBoardData(prev => ({ ...prev, ReviewStatus: "approved" }));
+      alert("Board approved!");
+    } catch (e) { alert("Failed to approve board."); }
+  };
 
   const handleClientAction = async (status, reason = "") => {
     const token = localStorage.getItem("token");
     setSaveStatus("saving");
     try {
       await axios.post(`http://localhost:5050/api/boards/${id}/sync`, {
-        Title: boardTitle,
-        ClientStatus: status,
-        ClientFeedback: reason
+        title: boardTitle,
+        clientStatus: status,
+        clientFeedback: reason
       }, { headers: { Authorization: `Bearer ${token}` } });
-      setBoardData(prev => ({ ...prev, ClientStatus: status, ClientFeedback: reason }));
+      setBoardData(prev => ({ ...prev, clientStatus: status, clientFeedback: reason }));
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 2000);
       if (status === "Rejected") setShowRejectModal(false);
     } catch { setSaveStatus("error"); }
   };
 
-
-  // ── 5. CANVAS RENDERING ──────────────────────
+  // --- 4.5. 10s AUTO-SAVE ---
+  useEffect(() => {
+    if (!isLoaded || !canEdit) return;
+    const interval = setInterval(() => {
+      saveToBackend();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [isLoaded, canEdit, saveToBackend]);
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -447,6 +558,9 @@ const Board = () => {
       arrow: { w: 200, h: 40 },
     };
     const { w, h } = defaults[type] || { w: 150, h: 150 };
+    
+    // Debug: Ensure valid center
+    console.log("[Board] Adding item:", { type, cx, cy, w, h, pan: panRef.current, zoom: zoomRef.current });
 
     // sticky note colors
     const stickyColors = ["#fef08a", "#bbf7d0", "#bfdbfe", "#fecdd3", "#e9d5ff"];
@@ -483,8 +597,11 @@ const Board = () => {
     if (!file) return;
     const url = URL.createObjectURL(file);
     const isVideo = file.type.startsWith("video/");
-    addItem(isVideo ? "video" : "image", url);
+    // Determine type: use mediaModal if set, otherwise infer from file
+    const itemType = mediaModal === "video" || isVideo ? "video" : "image";
+    addItem(itemType, url);
     setMediaModal(null);
+    setMediaUrl("");
     e.target.value = "";
   };
 
@@ -514,110 +631,206 @@ const Board = () => {
         </button>
       )}
 
-      {/* ── TOOLBAR ── */}
-      <AnimatePresence>
-        {(!presentationMode && isLoaded && userRole === "admin") && (
-          <motion.nav
-            initial={{ y: -80 }} animate={{ y: 0 }} exit={{ y: -80 }}
-            className={`absolute top-4 left-1/2 -translate-x-1/2 flex flex-wrap items-center gap-1.5 px-3 py-2 rounded-2xl shadow-xl border z-50 ${dm ? "bg-slate-800/95 border-slate-700" : "bg-white/95 border-slate-200"}`}
-            style={{ backdropFilter: "blur(12px)" }}
-          >
-            {/* Board title inline edit */}
-            {editingTitle ? (
-              <div className="flex items-center gap-1">
-                <input
-                  autoFocus
-                  className={`text-sm font-bold outline-none bg-transparent border-b ${dm ? "border-indigo-400 text-white" : "border-indigo-500 text-slate-800"}`}
-                  value={boardTitle}
-                  onChange={e => setBoardTitle(e.target.value)}
-                  onBlur={() => setEditingTitle(false)}
-                  onKeyDown={e => e.key === "Enter" && setEditingTitle(false)}
-                  style={{ width: Math.max(80, boardTitle.length * 8) }}
-                />
-                <button onClick={() => setEditingTitle(false)} className="text-emerald-500 p-0.5"><Check size={14} /></button>
-              </div>
+      {/* ── TOP NAV BAR ── */}
+      {!presentationMode && (
+        <div className={`flex items-center justify-between px-6 py-3 border-b flex-shrink-0 z-[60] ${dm ? "bg-slate-950 border-slate-800" : "bg-white border-slate-200"} shadow-sm`}>
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate(-1)} className={`p-1.5 rounded-lg transition-colors ${dm ? "hover:bg-slate-800 text-slate-400" : "hover:bg-slate-100 text-slate-500"}`}>
+              <ArrowLeft size={16} />
+            </button>
+            <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center text-white shadow-lg overflow-hidden">
+               <Projector size={18} />
+            </div>
+            
+            {/* Title */}
+            {editingTitle && canEdit ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    autoFocus
+                    className={`text-base font-bold outline-none border-b ${dm ? "bg-transparent border-indigo-400 text-white" : "bg-transparent border-indigo-500 text-slate-900"}`}
+                    value={boardTitle}
+                    onChange={e => setBoardTitle(e.target.value)}
+                    onBlur={() => { setEditingTitle(false); saveToBackend(); }}
+                    onKeyDown={e => { if (e.key === "Enter") { setEditingTitle(false); saveToBackend(); } }}
+                  />
+                  <button onClick={() => { setEditingTitle(false); saveToBackend(); }} className="text-emerald-500"><Check size={14} /></button>
+                </div>
             ) : (
-              <button onClick={() => setEditingTitle(true)} className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg ${dm ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-slate-100"}`}>
-                <Edit3 size={12} /> {boardTitle.slice(0, 18)}{boardTitle.length > 18 ? "…" : ""}
-              </button>
+                <div className="flex flex-col text-left">
+                  <button onClick={() => canEdit && setEditingTitle(true)} className={`text-base font-bold transition-opacity ${dm ? "text-white" : "text-slate-900"} ${canEdit ? "hover:opacity-70" : ""}`}>
+                    {boardTitle || "Untitled Board"}
+                  </button>
+                  {boardData?.reviewStatus === "in_review" && (
+                     <span className="text-[9px] font-bold text-amber-500 uppercase tracking-tighter">Under Review by Admin</span>
+                  )}
+                </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Save status */}
+            <span className={`text-xs font-medium transition-all mr-2 ${saveStatus === "saving" ? "text-amber-500" : saveStatus === "saved" ? "text-emerald-500" : saveStatus === "error" ? "text-rose-500" : "opacity-0"}`}>
+                {saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "✓ Saved" : saveStatus === "error" ? "Save failed" : "·"}
+            </span>
+
+            {/* Badges */}
+            {boardData?.linkedTaskId && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-500/10 text-indigo-400 rounded-lg text-[10px] font-bold border border-indigo-500/10">
+                   <Link size={11} /> Task: {tasks.find(t => (t.id || t.ID) === boardData.linkedTaskId)?.title.slice(0, 16) || "Linked"}
+                </div>
+            )}
+            {boardData?.linkedDocId && (
+                <button 
+                  onClick={() => navigate(`/docs/${boardData.linkedDocId}`)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 text-emerald-400 rounded-lg text-[10px] font-bold border border-emerald-500/10 hover:bg-emerald-500/20 transition-colors"
+                >
+                   <FileText size={11} /> Doc: {documents.find(d => String(d.id || d.ID) === String(boardData.linkedDocId))?.title || "Linked"}
+                </button>
             )}
 
-            <div className={`h-5 w-px ${dm ? "bg-slate-700" : "bg-slate-200"}`} />
+            <div className={`h-5 w-px mx-1 ${dm ? "bg-slate-800" : "bg-slate-200"}`} />
 
-            {/* TOOLS */}
-            <div className={`flex p-0.5 rounded-xl ${dm ? "bg-slate-700/60" : "bg-slate-100"}`}>
-              <ToolBtn icon={<MousePointer2 size={16} />} onClick={() => setTool("select")} label="Select" active={tool === "select"} dark={dm} />
-              <ToolBtn icon={<Hand size={16} />} onClick={() => setTool("hand")} label="Pan Board" active={tool === "hand"} dark={dm} />
-              <ToolBtn icon={<PenTool size={16} />} onClick={() => setTool("draw")} label="Draw" active={tool === "draw"} dark={dm} />
-              <ToolBtn icon={<Eraser size={16} />} onClick={() => setTool("eraser")} label="Eraser" active={tool === "eraser"} dark={dm} activeColor="text-rose-500" />
-            </div>
-
-            <div className={`h-5 w-px ${dm ? "bg-slate-700" : "bg-slate-200"}`} />
-
-            {/* SHAPES & ELEMENTS */}
-            <ToolBtn icon={<Type size={16} />} onClick={() => addItem("text")} label="Text" dark={dm} />
-            <ToolBtn icon={<Square size={16} />} onClick={() => addItem("rect")} label="Rectangle" dark={dm} />
-            <ToolBtn icon={<Circle size={16} />} onClick={() => addItem("circle")} label="Circle" dark={dm} />
-            <ToolBtn icon={<Triangle size={16} />} onClick={() => addItem("triangle")} label="Triangle" dark={dm} />
-            <ToolBtn icon={<Minus size={16} />} onClick={() => addItem("line")} label="Line" dark={dm} />
-            <ToolBtn icon={<MoveRight size={16} />} onClick={() => addItem("arrow")} label="Arrow" dark={dm} />
-            <ToolBtn icon={<StickyNote size={16} />} onClick={() => addItem("sticky")} label="Sticky Note" dark={dm} />
-
-            {/* EMOJI */}
-            <div className="relative">
-              <ToolBtn icon={<Smile size={16} />} onClick={() => setShowEmoji(!showEmoji)} label="Emoji" dark={dm} active={showEmoji} />
-              {showEmoji && (
-                <div className={`absolute top-10 left-0 z-50 p-2 rounded-xl shadow-2xl border grid grid-cols-8 gap-1 w-56 ${dm ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
-                  {EMOJIS.map(emoji => (
-                    <button key={emoji} onClick={() => {
-                      addItem("emoji", ""); updateItem; setShowEmoji(false); setItems(prev => {
-                        const last = prev[prev.length - 1];
-                        return prev.map(i => i.id === last?.id ? { ...i, text: emoji } : i);
-                      });
-                    }} className="text-2xl hover:scale-125 transition-transform">
-                      {emoji}
-                    </button>
-                  ))}
+            {/* Linkers */}
+            {canEdit && (
+                <div className="flex gap-2">
+                   <select 
+                    className={`text-[10px] bg-transparent outline-none border rounded px-1 font-bold ${dm ? "text-slate-400 border-slate-700" : "text-slate-500 border-slate-200"}`}
+                    value={boardData?.linkedTaskId || ""}
+                    onChange={e => handleLinkTask(e.target.value)}
+                  >
+                    <option value="">Link Task...</option>
+                    {tasks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
+                  </select>
+                   <select 
+                    className={`text-[10px] bg-transparent outline-none border rounded px-1 font-bold ${dm ? "text-slate-400 border-slate-700" : "text-slate-500 border-slate-200"}`}
+                    value={boardData?.linkedDocId || ""}
+                    onChange={e => handleLinkDoc(e.target.value)}
+                  >
+                    <option value="">Link Doc...</option>
+                    {documents.map(d => <option key={d.id} value={d.id}>{d.title || "Untitled"}</option>)}
+                  </select>
                 </div>
-              )}
-            </div>
+            )}
 
-            <div className={`h-5 w-px ${dm ? "bg-slate-700" : "bg-slate-200"}`} />
+            {/* Actions */}
+            {userRole === "admin" && (
+                <button onClick={() => setShowShareModal(true)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${dm ? "border-slate-700 text-slate-300 hover:bg-slate-800" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+                    <Share2 size={13} /> Share
+                </button>
+            )}
 
-            {/* MEDIA IMPORT */}
-            <ToolBtn icon={<ImageIcon size={16} />} onClick={() => openMediaModal("image")} label="Add Image" dark={dm} />
-            <ToolBtn icon={<Video size={16} />} onClick={() => openMediaModal("video")} label="Add Video" dark={dm} />
+            {userRole === "member" && (
+                <button
+                    onClick={handleSubmitReview}
+                    disabled={submittingReview || reviewSent || boardData?.reviewStatus === "approved"}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                        reviewSent || boardData?.reviewStatus === "approved"
+                            ? "bg-emerald-500 text-white"
+                            : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                    }`}>
+                    {submittingReview ? <Loader2 size={13} className="animate-spin" /> : (reviewSent || boardData?.reviewStatus === "approved") ? <Check size={13} /> : <CloudUpload size={13} />}
+                    {boardData?.reviewStatus === "approved" ? "Approved" : reviewSent ? "Sent to Admin!" : "Submit for Review"}
+                </button>
+            )}
 
-            <div className={`h-5 w-px ${dm ? "bg-slate-700" : "bg-slate-200"}`} />
+            {userRole === "admin" && boardData?.reviewStatus === "in_review" && (
+                <button onClick={handleApprove}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors">
+                    <Check size={13} /> Approve Board
+                </button>
+            )}
+
+            {canEdit && (
+                <button onClick={saveToBackend}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
+                    <CloudUpload size={13} /> Save
+                </button>
+            )}
+
+            {userRole === "admin" && (
+                <button onClick={handleDelete}
+                    className={`p-1.5 rounded-lg transition-colors ${dm ? "hover:bg-rose-500/20 text-slate-400 hover:text-rose-400" : "hover:bg-rose-50 text-slate-500 hover:text-rose-500"}`}>
+                    <Trash2 size={16} />
+                </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── EMOJI PICKER ── */}
+      <AnimatePresence>
+        {showEmoji && (
+          <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }}
+            className={`absolute bottom-20 left-1/2 -translate-x-1/2 p-4 rounded-2xl shadow-2xl border z-[70] grid grid-cols-8 gap-3 ${dm ? "bg-slate-800 border-slate-700" : "bg-white border-slate-100"}`}>
+            {EMOJIS.map(e => (
+              <button key={e} onClick={() => addEmojiItem(e)} className="text-2xl hover:scale-125 transition-transform">{e}</button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── TOOLBAR (Bottom floating) ── */}
+      <AnimatePresence>
+        {(!presentationMode && isLoaded) && (
+          <motion.nav
+            initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }}
+            className={`absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-2 rounded-2xl shadow-2xl border z-50 ${dm ? "bg-slate-800/95 border-slate-700" : "bg-white/95 border-slate-200"}`}
+            style={{ backdropFilter: "blur(12px)" }}
+          >
+            {/* TOOLS */}
+            {canEdit ? (
+              <div className="flex items-center gap-2">
+                <div className={`flex p-0.5 rounded-xl ${dm ? "bg-slate-700/60" : "bg-slate-100"}`}>
+                  <ToolBtn icon={<MousePointer2 size={16} />} onClick={() => setTool("select")} label="Select" active={tool === "select"} dark={dm} />
+                  <ToolBtn icon={<Hand size={16} />} onClick={() => setTool("hand")} label="Pan" active={tool === "hand"} dark={dm} />
+                  <ToolBtn icon={<PenTool size={16} />} onClick={() => setTool("draw")} label="Draw" active={tool === "draw"} dark={dm} />
+                  <ToolBtn icon={<Eraser size={16} />} onClick={() => setTool("eraser")} label="Eraser" active={tool === "eraser"} dark={dm} activeColor="text-rose-500" />
+                </div>
+
+                <div className={`w-px h-6 mx-1 ${dm ? "bg-slate-700" : "bg-slate-200"}`} />
+
+                <div className={`flex p-0.5 rounded-xl ${dm ? "bg-slate-700/60" : "bg-slate-100"}`}>
+                   <ToolBtn icon={<Type size={16} />} onClick={() => addItem("text")} label="Text" dark={dm} />
+                   <div className="relative group">
+                      <ToolBtn icon={<Square size={16} />} label="Shapes" dark={dm} />
+                      <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-1.5 rounded-xl shadow-xl border flex gap-1 items-center opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all ${dm ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
+                        <button onClick={() => addItem("rect")} className={`p-1.5 rounded-lg ${dm ? "hover:bg-slate-700" : "hover:bg-slate-100"}`}><Square size={14} /></button>
+                        <button onClick={() => addItem("circle")} className={`p-1.5 rounded-lg ${dm ? "hover:bg-slate-700" : "hover:bg-slate-100"}`}><Circle size={14} /></button>
+                        <button onClick={() => addItem("triangle")} className={`p-1.5 rounded-lg ${dm ? "hover:bg-slate-700" : "hover:bg-slate-100"}`}><Triangle size={14} /></button>
+                      </div>
+                   </div>
+                   <button onClick={() => addItem("line")} className={`p-2 rounded-lg transition-colors ${dm ? "text-slate-400 hover:bg-slate-700" : "text-slate-600 hover:bg-slate-200"}`} title="Line"><Minus size={16} /></button>
+                   <button onClick={() => addItem("arrow")} className={`p-2 rounded-lg transition-colors ${dm ? "text-slate-400 hover:bg-slate-700" : "text-slate-600 hover:bg-slate-200"}`} title="Arrow"><MoveRight size={16} /></button>
+                   <ToolBtn icon={<StickyNote size={16} />} onClick={() => addItem("sticky")} label="Sticky" dark={dm} />
+                   <ToolBtn icon={<Smile size={16} />} onClick={() => setShowEmoji(!showEmoji)} active={showEmoji} label="Emoji" dark={dm} />
+                </div>
+
+                <div className={`w-px h-6 mx-1 ${dm ? "bg-slate-700" : "bg-slate-200"}`} />
+
+                <div className={`flex p-0.5 rounded-xl ${dm ? "bg-slate-700/60" : "bg-slate-100"}`}>
+                   <ToolBtn icon={<ImageIcon size={16} />} onClick={() => openMediaModal("image")} label="Image" dark={dm} />
+                   <ToolBtn icon={<Video size={16} />} onClick={() => openMediaModal("video")} label="Video" dark={dm} />
+                </div>
+              </div>
+            ) : (
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20`}>
+                <MousePointer2 size={14} /> View Only
+              </div>
+            )}
 
             {/* ZOOM */}
-            <ToolBtn icon={<ZoomOut size={16} />} onClick={() => setZoom(z => Math.max(0.25, z - 0.1))} label="Zoom Out" dark={dm} />
-            <span className={`text-xs font-bold w-10 text-center ${dm ? "text-slate-400" : "text-slate-500"}`}>{Math.round(zoom * 100)}%</span>
-            <ToolBtn icon={<ZoomIn size={16} />} onClick={() => setZoom(z => Math.min(3, z + 0.1))} label="Zoom In" dark={dm} />
+            <div className="flex items-center gap-1">
+              <ToolBtn icon={<ZoomOut size={14} />} onClick={() => setZoom(z => Math.max(0.25, z - 0.1))} dark={dm} />
+              <span className={`text-[10px] font-bold w-12 text-center ${dm ? "text-slate-400" : "text-slate-500"}`}>{Math.round(zoom * 100)}%</span>
+              <ToolBtn icon={<ZoomIn size={14} />} onClick={() => setZoom(z => Math.min(3, z + 0.1))} dark={dm} />
+            </div>
 
             <div className={`h-5 w-px ${dm ? "bg-slate-700" : "bg-slate-200"}`} />
 
-            {/* DARK MODE */}
             <button onClick={() => { setDarkMode(!dm); localStorage.setItem("theme", !dm ? "dark" : "light"); }}
               className={`p-1.5 rounded-lg transition-colors ${dm ? "hover:bg-slate-700 text-amber-400" : "hover:bg-slate-100 text-slate-500"}`}>
               {dm ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-
-
-
-            {/* PRESENTATION MODE */}
-            <button onClick={() => setPresentationMode(true)}
-              className={`p-1.5 rounded-lg transition-colors ${dm ? "hover:bg-slate-700 text-indigo-400" : "hover:bg-slate-100 text-indigo-500"}`} title="Presentation">
-              <Projector size={16} />
-            </button>
-
-            <div className={`h-5 w-px ${dm ? "bg-slate-700" : "bg-slate-200"}`} />
-
-            {/* SAVE */}
-            <button onClick={saveToBackend}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-md ${saveStatus === "saving" ? "bg-amber-100 text-amber-600" : saveStatus === "error" ? "bg-rose-100 text-rose-600" : "bg-indigo-600 text-white hover:bg-indigo-700"}`}>
-              {saveStatus === "saving" ? <Loader2 className="animate-spin" size={13} /> : <CloudUpload size={13} />}
-              {saveStatus === "saving" ? "Saving" : saveStatus === "error" ? "Retry" : "Save"}
             </button>
           </motion.nav>
         )}
@@ -625,7 +838,7 @@ const Board = () => {
 
       {/* ── PROPERTIES PANEL ── */}
       <AnimatePresence>
-        {((selectedId || tool === "draw") && !presentationMode && tool !== "eraser" && userRole === "admin") && (
+        {((selectedId || tool === "draw") && !presentationMode && tool !== "eraser" && canEdit) && (
           <motion.div
             initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
             className={`absolute bottom-14 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-2xl shadow-2xl border flex flex-wrap items-center gap-3 z-50 ${dm ? "bg-slate-800 border-slate-700" : "bg-white border-slate-100"}`}
@@ -749,21 +962,9 @@ const Board = () => {
               {/* Image */}
               {item.type === "image" && <img src={item.src} alt="" className="w-full h-full object-cover rounded-lg pointer-events-none select-none shadow-md" />}
 
-              {/* Video with Mini Timeline */}
+              {/* Video with Mini Timeline — uses stable VideoItem sub-component */}
               {item.type === "video" && (
-                <div className="w-full h-full flex flex-col">
-                  <video
-                    id={`video-${item.id}`}
-                    src={item.src}
-                    className="w-full flex-1 rounded-t-lg pointer-events-auto select-none shadow-md object-cover"
-                    style={{ minHeight: 0 }}
-                  />
-                  <MiniVideoTimeline
-                    item={item}
-                    isDark={dm}
-                    onUpdate={(fields) => updateItem(item.id, fields)}
-                  />
-                </div>
+                <VideoItem item={item} isDark={dm} onUpdate={(fields) => updateItem(item.id, fields)} />
               )}
 
               {/* Shape text overlay — rect, circle, triangle */}
@@ -822,12 +1023,12 @@ const Board = () => {
               )}
 
               {/* Resize handles */}
-              {selectedId === item.id && !["drawing", "emoji"].includes(item.type) && (
+              {selectedId === item.id && !["drawing", "emoji", "video"].includes(item.type) && (
                 <>
-                  <ResizeHandle pos="top-left" onMouseDown={e => { e.stopPropagation(); setResizing({ id: item.id, handle: "top-left" }); }} />
-                  <ResizeHandle pos="top-right" onMouseDown={e => { e.stopPropagation(); setResizing({ id: item.id, handle: "top-right" }); }} />
-                  <ResizeHandle pos="bottom-left" onMouseDown={e => { e.stopPropagation(); setResizing({ id: item.id, handle: "bottom-left" }); }} />
-                  <ResizeHandle pos="bottom-right" onMouseDown={e => { e.stopPropagation(); setResizing({ id: item.id, handle: "bottom-right" }); }} />
+                  <ResizeHandle key={`${item.id}-tl`} pos="top-left" onMouseDown={e => { e.stopPropagation(); setResizing({ id: item.id, handle: "top-left" }); }} />
+                  <ResizeHandle key={`${item.id}-tr`} pos="top-right" onMouseDown={e => { e.stopPropagation(); setResizing({ id: item.id, handle: "top-right" }); }} />
+                  <ResizeHandle key={`${item.id}-bl`} pos="bottom-left" onMouseDown={e => { e.stopPropagation(); setResizing({ id: item.id, handle: "bottom-left" }); }} />
+                  <ResizeHandle key={`${item.id}-br`} pos="bottom-right" onMouseDown={e => { e.stopPropagation(); setResizing({ id: item.id, handle: "bottom-right" }); }} />
                 </>
               )}
             </div>
@@ -901,6 +1102,15 @@ const Board = () => {
 
       {/* Hidden file input for legacy support */}
       <input id="fileInput" type="file" accept="image/*,video/*" className="hidden" onChange={handleFileUpload} />
+
+      {/* ── SHARE MODAL ── */}
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        resourceType="board"
+        resourceId={id}
+        isDark={dm}
+      />
     </div>
   );
 };
@@ -918,24 +1128,48 @@ const ResizeHandle = ({ pos, onMouseDown }) => {
 };
 
 // ─── Mini Video Timeline (per-card) ─────────────────────────────────────────
-const MiniVideoTimeline = ({ item, isDark, onUpdate }) => {
+// Stable video item wrapper so videoRef persists across renders
+const VideoItem = ({ item, isDark, onUpdate }) => {
+  const videoElRef = useRef(null);
+  return (
+    <div className="w-full h-full flex flex-col pointer-events-none" style={{ minHeight: 0 }}>
+      <video
+        ref={videoElRef}
+        src={item.src}
+        preload="metadata"
+        playsInline
+        className="w-full rounded-t-lg pointer-events-auto shadow-md object-cover"
+        style={{ flex: 1, minHeight: 0 }}
+        onError={(e) => console.error("Video Object Load Error", e)}
+        onDragStart={e => e.preventDefault()}
+      />
+      {item.src && (
+         <MiniVideoTimeline
+          videoElRef={videoElRef}
+          item={item}
+          isDark={isDark}
+          onUpdate={onUpdate}
+        />
+      )}
+    </div>
+  );
+};
+
+const MiniVideoTimeline = ({ item, isDark, onUpdate, videoElRef }) => {
   const railRef = useRef(null);
-  const videoRef = useRef(null);
   const dm = isDark;
 
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [playing, setPlaying] = useState(false);
 
-  // Trim in/out stored on the item
   const trimIn = item.trimIn || 0;
   const trimOut = item.trimOut || duration || 0;
 
-  // Connect to the video element
+  // Connect to the video element via ref
   useEffect(() => {
-    const el = document.getElementById(`video-${item.id}`);
+    const el = videoElRef?.current;
     if (!el) return;
-    videoRef.current = el;
     const onMeta = () => {
       setDuration(el.duration || 0);
       if (!item.trimOut) onUpdate({ trimOut: el.duration || 0 });
@@ -945,18 +1179,18 @@ const MiniVideoTimeline = ({ item, isDark, onUpdate }) => {
     el.addEventListener("loadedmetadata", onMeta);
     el.addEventListener("timeupdate", onTime);
     el.addEventListener("ended", onEnded);
-    if (el.duration) onMeta();
+    if (el.readyState >= 1) onMeta(); // already loaded
     return () => {
       el.removeEventListener("loadedmetadata", onMeta);
       el.removeEventListener("timeupdate", onTime);
       el.removeEventListener("ended", onEnded);
     };
-  }, [item.id]);
+  }, [videoElRef, item.id]);
 
   // Play / Pause
   const togglePlay = (e) => {
     e.stopPropagation();
-    const v = videoRef.current;
+    const v = videoElRef?.current;
     if (!v) return;
     if (playing) { v.pause(); setPlaying(false); }
     else {
@@ -967,9 +1201,9 @@ const MiniVideoTimeline = ({ item, isDark, onUpdate }) => {
 
   // Stop at trim-out
   useEffect(() => {
-    if (!playing || !videoRef.current) return;
+    if (!playing || !videoElRef?.current) return;
     const iv = setInterval(() => {
-      const v = videoRef.current;
+      const v = videoElRef?.current;
       if (v && v.currentTime >= trimOut) { v.pause(); v.currentTime = trimIn; setPlaying(false); }
     }, 100);
     return () => clearInterval(iv);
@@ -978,10 +1212,10 @@ const MiniVideoTimeline = ({ item, isDark, onUpdate }) => {
   // Click rail → seek
   const seekTo = (e) => {
     e.stopPropagation();
-    if (!railRef.current || !videoRef.current || !duration) return;
+    if (!railRef.current || !videoElRef?.current || !duration) return;
     const r = railRef.current.getBoundingClientRect();
     const t = Math.max(0, Math.min(duration, ((e.clientX - r.left) / r.width) * duration));
-    videoRef.current.currentTime = t;
+    videoElRef.current.currentTime = t;
     setCurrentTime(t);
   };
 
@@ -1006,9 +1240,20 @@ const MiniVideoTimeline = ({ item, isDark, onUpdate }) => {
     return `${m}:${String(sec).padStart(2, "0")}`;
   };
 
-  const pct = duration > 0 ? (currentTime / duration) * 100 : 0;
-  const trimInPct = duration > 0 ? (trimIn / duration) * 100 : 0;
-  const trimOutPct = duration > 0 ? (trimOut / duration) * 100 : 100;
+  const pct = (duration > 0 && !isNaN(duration) && !isNaN(currentTime)) ? Math.max(0, Math.min(100, (currentTime / duration) * 100)) : 0;
+  const trimInSafe = isNaN(trimIn) ? 0 : trimIn;
+  const trimOutSafe = isNaN(trimOut) ? duration : trimOut;
+
+  const trimInPct = (duration > 0 && !isNaN(duration)) ? Math.max(0, Math.min(100, (trimInSafe / duration) * 100)) : 0;
+  let trimOutPct = 100;
+  if (duration > 0 && !isNaN(duration) && !isNaN(trimOutSafe)) {
+     trimOutPct = Math.max(0, Math.min(100, (trimOutSafe / duration) * 100));
+  }
+
+  // Prevent overlap or logic inversion
+  if (trimInPct > trimOutPct) {
+    trimOutPct = trimInPct;
+  }
 
   return (
     <div
@@ -1031,7 +1276,7 @@ const MiniVideoTimeline = ({ item, isDark, onUpdate }) => {
             className="absolute top-0 bottom-0 rounded-full"
             style={{
               left: `${trimInPct}%`,
-              width: `${trimOutPct - trimInPct}%`,
+              width: `${Math.max(0, trimOutPct - trimInPct)}%`,
               background: "rgba(99,102,241,0.3)",
             }}
           />
@@ -1093,77 +1338,8 @@ const MiniVideoTimeline = ({ item, isDark, onUpdate }) => {
           <span className="font-mono text-[9px] text-rose-300 tabular-nums">{fmt(trimOut)}</span>
         </div>
       </div>
-      {/* ── Client Action Overlay ── */}
-      {userRole === "client" && isLoaded && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-3 px-4 py-2.5 rounded-2xl shadow-xl border z-50 bg-white/95 border-slate-200 dark:bg-slate-800/95 dark:border-slate-700 backdrop-blur-md">
-          <div className="flex flex-col">
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Storyboard Approval</span>
-            <span className="text-xs font-bold dark:text-white">{boardTitle}</span>
-          </div>
-          <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1" />
-          {boardData?.ClientStatus === "Approved" ? (
-            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-lg">
-              <Check size={14} /> Approved
-            </span>
-          ) : boardData?.ClientStatus === "Rejected" ? (
-            <div className="flex items-center gap-2">
-              <span className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500 text-white text-xs font-bold rounded-xl shadow-lg">
-                <X size={14} /> Rejected
-              </span>
-              <button onClick={() => setShowRejectModal(true)} className="text-[10px] font-bold text-indigo-500 hover:underline">Edit Reason</button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={() => handleClientAction("Approved")}
-                disabled={saveStatus === "saving"}
-                className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all">
-                {saveStatus === "saving" ? <Loader2 className="animate-spin" size={13} /> : <Check size={14} />} Approve
-              </button>
-              <button 
-                onClick={() => setShowRejectModal(true)}
-                disabled={saveStatus === "saving"}
-                className="flex items-center gap-1.5 px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md transition-all">
-                <X size={14} /> Reject
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Reject Reason Modal */}
-      <AnimatePresence>
-        {showRejectModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white dark:bg-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-200 dark:border-slate-700">
-              <h3 className="text-lg font-bold dark:text-white mb-2">Rejection Feedback</h3>
-              <p className="text-xs text-slate-500 mb-4">Please explain why you are rejecting this storyboard so we can improve it.</p>
-              <textarea 
-                autoFocus
-                value={rejectReason}
-                onChange={e => setRejectReason(e.target.value)}
-                placeholder="Reason for rejection..."
-                className="w-full h-32 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 outline-none text-sm dark:text-white resize-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <div className="flex justify-end gap-3 mt-6">
-                <button onClick={() => setShowRejectModal(false)} className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-all">Cancel</button>
-                <button 
-                  onClick={() => handleClientAction("Rejected", rejectReason)}
-                  disabled={!rejectReason.trim() || saveStatus === "saving"}
-                  className="px-6 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-lg transition-all disabled:opacity-50">
-                  Submit Rejection
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };
-
-
 
 export default Board;

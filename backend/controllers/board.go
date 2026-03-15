@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"fmt"
 	"reecho_media_crm/database"
 	"reecho_media_crm/models"
 
@@ -49,114 +50,207 @@ func CreateBoard(c *fiber.Ctx) error {
 func GetAllBoards(c *fiber.Ctx) error {
 	adminIDStr, role, email := getAdminContext(c)
 	adminID, _ := uuid.Parse(adminIDStr)
+	realUserIDStr, ok := c.Locals("userID").(string)
+	if !ok {
+		return c.Status(401).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+	realUserID, _ := uuid.Parse(realUserIDStr)
 
 	var boards []models.Board
-	if role == "client" {
-		var client models.Client
-		database.DB.Where("email = ?", email).First(&client)
-		database.DB.Where("owner_id = ? AND client_name = ?", adminID, client.Name).Find(&boards)
-	} else if role == "member" {
-		// Member sees: own boards + boards shared with them by admin
-		realUserIDStr, _ := c.Locals("userID").(string)
-		realUserID, _ := uuid.Parse(realUserIDStr)
+	seen := map[uuid.UUID]bool{}
 
-		// Get member's DB record (for shared access lookup)
-		var member models.TeamMember
-		database.DB.Where("email = ?", email).First(&member)
+	// 1. Owned boards
+	var ownBoards []models.Board
+	database.DB.Where("owner_id = ?", realUserID).Find(&ownBoards)
+	for _, b := range ownBoards {
+		boards = append(boards, b)
+		seen[b.ID] = true
+	}
 
-		// Get shared board IDs
-		var accesses []models.BoardAccess
-		database.DB.Where("member_id = ? AND admin_id = ?", member.ID, adminIDStr).Find(&accesses)
-		sharedIDs := make([]uuid.UUID, len(accesses))
-		for i, a := range accesses {
-			sharedIDs[i] = a.BoardID
-		}
+	// 2. Shared boards via BoardAccess
+	var sharedAccess []models.BoardAccess
+	database.DB.Where("target_email = ?", email).Find(&sharedAccess)
+	
+	var sharedIDs []uuid.UUID
+	for _, a := range sharedAccess {
+		sharedIDs = append(sharedIDs, a.BoardID)
+	}
 
-		// Fetch own boards
-		var ownBoards []models.Board
-		database.DB.Where("owner_id = ?", realUserID).Find(&ownBoards)
-
-		// Fetch shared boards (from admin's pool)
+	if len(sharedIDs) > 0 {
 		var sharedBoards []models.Board
-		if len(sharedIDs) > 0 {
-			database.DB.Where("id IN ?", sharedIDs).Find(&sharedBoards)
-		}
-
-		// Merge (avoid duplicates)
-		seen := map[uuid.UUID]bool{}
-		for _, b := range ownBoards {
-			if !seen[b.ID] {
-				boards = append(boards, b)
-				seen[b.ID] = true
-			}
-		}
+		database.DB.Where("id IN ?", sharedIDs).Find(&sharedBoards)
 		for _, b := range sharedBoards {
 			if !seen[b.ID] {
 				boards = append(boards, b)
 				seen[b.ID] = true
 			}
 		}
-	} else {
-		if err := database.DB.Where("owner_id = ?", adminID).Find(&boards).Error; err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": "Could not fetch boards"})
+	}
+
+	// 3. Client: boards already picked up via BoardAccess in step 2.
+	// No extra loose client_name lookup — only explicit shares are shown.
+
+	// 4. Assigned Task boards (for members)
+	// NOTE: Admin-owned workspace boards are NOT automatically shown to members.
+	// Members only see boards they own (step 1) or boards explicitly shared (step 2).
+	if role == "member" {
+		var member models.TeamMember
+		if err := database.DB.Where("email = ?", email).First(&member).Error; err == nil {
+			var taskBoardStrings []string
+			database.DB.Model(&models.Task{}).
+				Where("user_id = ? AND (assignees LIKE ? OR assignees LIKE ?) AND linked_board_id != ''",
+					adminIDStr, "%"+member.Name+"%", "%"+member.Initials+"%").
+				Pluck("linked_board_id", &taskBoardStrings)
+
+			if len(taskBoardStrings) > 0 {
+				var tIDs []uuid.UUID
+				for _, s := range taskBoardStrings {
+					if uid, err := uuid.Parse(s); err == nil { tIDs = append(tIDs, uid) }
+				}
+				if len(tIDs) > 0 {
+					var tBoards []models.Board
+					database.DB.Where("id IN ?", tIDs).Find(&tBoards)
+					for _, b := range tBoards {
+						if !seen[b.ID] {
+							boards = append(boards, b)
+							seen[b.ID] = true
+						}
+					}
+				}
+			}
+			// Admin-owned boards are NOT added here. Members see only their own
+			// boards and boards the admin explicitly shared with them.
+		}
+	}
+
+	// 5. Admin pool view (Admins see everything owned by them OR their team members)
+	if role == "admin" {
+		var allWorkspaceBoards []models.Board
+		// Find all boards where owner_id is admin OR where owner_id belongs to a member of this admin
+		var memberIDs []uuid.UUID
+		database.DB.Table("users").
+			Select("users.id").
+			Joins("inner join team_members on team_members.email = users.email").
+			Where("team_members.user_id = ?", adminIDStr).
+			Find(&memberIDs)
+		
+		query := database.DB.Where("owner_id = ?", adminID)
+		if len(memberIDs) > 0 {
+			query = database.DB.Where("owner_id = ? OR owner_id IN ?", adminID, memberIDs)
+		}
+		
+		query.Find(&allWorkspaceBoards)
+		for _, b := range allWorkspaceBoards {
+			if !seen[b.ID] {
+				boards = append(boards, b)
+				seen[b.ID] = true
+			}
 		}
 	}
 
 	return c.JSON(boards)
 }
 
-// GetBoard: Fetches a single board (owner, admin-shared to member, or client access)
+// GetBoard: Fetches a single board (owner, shared, or client access)
 func GetBoard(c *fiber.Ctx) error {
 	adminIDStr, role, email := getAdminContext(c)
-	adminID, _ := uuid.Parse(adminIDStr)
 	boardID := c.Params("id")
+	parsedBoardID, _ := uuid.Parse(boardID)
 
 	var board models.Board
+	permission := "viewer"
 
-	if role == "client" {
-		var client models.Client
-		database.DB.Where("email = ?", email).First(&client)
-		if err := database.DB.Where("id = ? AND owner_id = ? AND client_name = ?", boardID, adminID, client.Name).First(&board).Error; err != nil {
-			return c.Status(404).JSON(fiber.Map{"error": "Board not found"})
-		}
-	} else if role == "member" {
-		realUserIDStr, _ := c.Locals("userID").(string)
-		realUserID, _ := uuid.Parse(realUserIDStr)
-		parsedBoardID, _ := uuid.Parse(boardID)
+	// 1. Check Ownership
+	userIDStr := c.Locals("userID").(string)
+	userID, _ := uuid.Parse(userIDStr)
+	if err := database.DB.Where("id = ? AND owner_id = ?", boardID, userID).First(&board).Error; err == nil {
+		permission = "editor"
+		return c.JSON(fiber.Map{
+			"board":      board,
+			"permission": permission,
+		})
+	}
 
-		// Check if member owns it
-		err := database.DB.Where("id = ? AND owner_id = ?", boardID, realUserID).First(&board).Error
-		if err != nil {
-			// Check shared access
-			var member models.TeamMember
-			database.DB.Where("email = ?", email).First(&member)
-			var access models.BoardAccess
-			if err2 := database.DB.Where("board_id = ? AND member_id = ?", parsedBoardID, member.ID).First(&access).Error; err2 != nil {
-				return c.Status(404).JSON(fiber.Map{"error": "Board not found"})
+	// 2. Check task assignment (if assigned to a task linked to this board, grant edit)
+	if role == "member" {
+		var member models.TeamMember
+		database.DB.Where("email = ?", email).First(&member)
+		var task models.Task
+		// Search for any task linked to this board ID and assigned to this member
+		err := database.DB.Where("user_id = ? AND (assignees LIKE ? OR assignees LIKE ?) AND linked_board_id = ?",
+			adminIDStr, "%"+member.Name+"%", "%"+member.Initials+"%", boardID).First(&task).Error
+		if err == nil {
+			if err2 := database.DB.Where("id = ?", boardID).First(&board).Error; err2 == nil {
+				permission = "editor"
+				return c.JSON(fiber.Map{
+					"board":      board,
+					"permission": permission,
+				})
 			}
-			if err3 := database.DB.Where("id = ?", boardID).First(&board).Error; err3 != nil {
-				return c.Status(404).JSON(fiber.Map{"error": "Board not found"})
-			}
-		}
-	} else {
-		if err := database.DB.Where("id = ? AND owner_id = ?", boardID, adminID).First(&board).Error; err != nil {
-			return c.Status(404).JSON(fiber.Map{"error": "Board not found"})
 		}
 	}
 
-	return c.JSON(board)
+	// 3. Check if shared via BoardAccess
+	var access models.BoardAccess
+	err := database.DB.Where("board_id = ? AND target_email = ?", parsedBoardID, email).First(&access).Error
+	if err == nil {
+		if err2 := database.DB.Where("id = ?", boardID).First(&board).Error; err2 == nil {
+			permission = access.Permission
+			return c.JSON(fiber.Map{
+				"board":      board,
+				"permission": permission,
+			})
+		}
+	}
+
+	// Client access via client_name is removed — clients must only access boards
+	// explicitly shared via the Share button (handled in step 3 above via BoardAccess).
+	
+	// 4. Admin fallback
+	if role == "admin" {
+		adminID, _ := uuid.Parse(adminIDStr)
+		if err := database.DB.Where("id = ? AND owner_id = ?", boardID, adminID).First(&board).Error; err == nil {
+			permission = "editor"
+			return c.JSON(fiber.Map{
+				"board":      board,
+				"permission": permission,
+			})
+		} else {
+			// Check if the owner is a team member managed by this admin
+			var memberIDs []uuid.UUID
+			database.DB.Table("users").
+				Select("users.id").
+				Joins("inner join team_members on team_members.email = users.email").
+				Where("team_members.user_id = ?", adminIDStr).
+				Find(&memberIDs)
+			
+			if len(memberIDs) > 0 {
+				if err := database.DB.Where("id = ? AND owner_id IN ?", boardID, memberIDs).First(&board).Error; err == nil {
+					permission = "editor"
+					return c.JSON(fiber.Map{
+						"board":      board,
+						"permission": permission,
+					})
+				}
+			}
+		}
+	}
+
+	return c.Status(404).JSON(fiber.Map{"error": "Board not found or no access"})
 }
 
 func SyncBoard(c *fiber.Ctx) error {
 	id := c.Params("id")
+	parsedBoardID, _ := uuid.Parse(id)
 	adminIDStr, role, email := getAdminContext(c)
-	adminID, _ := uuid.Parse(adminIDStr)
 
 	type UpdatePayload struct {
-		Title          string `json:"Title"`
-		FullState      string `json:"FullState"`
-		ClientStatus   string `json:"ClientStatus"`
-		ClientFeedback string `json:"ClientFeedback"`
+		Title          string      `json:"title"`
+		FullState      string      `json:"fullState"`
+		ClientStatus   string      `json:"clientStatus"`
+		ClientFeedback string      `json:"clientFeedback"`
+		LinkedTaskID   interface{} `json:"linkedTaskId"`
+		LinkedDocID    interface{} `json:"linkedDocId"`
 	}
 
 	var payload UpdatePayload
@@ -165,58 +259,103 @@ func SyncBoard(c *fiber.Ctx) error {
 	}
 
 	var board models.Board
-	if role == "client" {
-		var client models.Client
-		database.DB.Where("email = ?", email).First(&client)
-		if err := database.DB.Where("id = ? AND owner_id = ? AND client_name = ?", id, adminID, client.Name).First(&board).Error; err != nil {
-			return c.Status(404).JSON(fiber.Map{"error": "Board not found"})
-		}
-		if payload.ClientStatus != "" {
-			board.ClientStatus = payload.ClientStatus
-		}
-		if payload.ClientFeedback != "" {
-			board.ClientFeedback = payload.ClientFeedback
-		}
-	} else if role == "member" {
-		parsedBoardID, _ := uuid.Parse(id)
-		realUserIDStr, _ := c.Locals("userID").(string)
-		realUserID, _ := uuid.Parse(realUserIDStr)
+	var canEdit bool = false
 
-		// Check ownership or shared access
-		err := database.DB.Where("id = ? AND owner_id = ?", id, realUserID).First(&board).Error
-		if err != nil {
-			var member models.TeamMember
-			database.DB.Where("email = ?", email).First(&member)
-			var access models.BoardAccess
-			if err2 := database.DB.Where("board_id = ? AND member_id = ?", parsedBoardID, member.ID).First(&access).Error; err2 != nil {
-				return c.Status(404).JSON(fiber.Map{"error": "Board not found or no access"})
+	// Check eligibility to edit
+	realUserIDStr, _ := c.Locals("userID").(string)
+	realUserID, _ := uuid.Parse(realUserIDStr)
+
+	// Admin always can edit their pool (or any board if we want to be permissive, but let's stick to their pool)
+	if role == "admin" {
+		adminID, _ := uuid.Parse(adminIDStr)
+		if err := database.DB.Where("id = ? AND owner_id = ?", id, adminID).First(&board).Error; err == nil {
+			canEdit = true
+		} else {
+			// Check if the owner is a team member managed by this admin
+			var memberIDs []uuid.UUID
+			database.DB.Table("users").
+				Select("users.id").
+				Joins("inner join team_members on team_members.email = users.email").
+				Where("team_members.user_id = ?", adminIDStr).
+				Find(&memberIDs)
+			
+			if len(memberIDs) > 0 {
+				if err := database.DB.Where("id = ? AND owner_id IN ?", id, memberIDs).First(&board).Error; err == nil {
+					canEdit = true
+				}
 			}
-			if err3 := database.DB.Where("id = ?", id).First(&board).Error; err3 != nil {
-				return c.Status(404).JSON(fiber.Map{"error": "Board not found"})
-			}
-		}
-		// Members can update full state and title
-		if payload.Title != "" {
-			board.Title = payload.Title
-		}
-		if payload.FullState != "" {
-			board.FullState = json.RawMessage(payload.FullState)
 		}
 	} else {
-		if err := database.DB.Where("id = ? AND owner_id = ?", id, adminID).First(&board).Error; err != nil {
-			return c.Status(404).JSON(fiber.Map{"error": "Board not found"})
+		// Owner can edit
+		if err := database.DB.Where("id = ? AND owner_id = ?", id, realUserID).First(&board).Error; err == nil {
+			canEdit = true
+		} else {
+			// Check shared access with "editor" permission
+			var access models.BoardAccess
+			if err2 := database.DB.Where("board_id = ? AND target_email = ? AND permission = 'editor'", parsedBoardID, email).First(&access).Error; err2 == nil {
+				if err3 := database.DB.Where("id = ?", id).First(&board).Error; err3 == nil {
+					canEdit = true
+				}
+			}
 		}
-		if payload.Title != "" {
-			board.Title = payload.Title
+	}
+
+	// Client special case: can submit approval/feedback on boards explicitly shared with them (view-only access)
+	if !canEdit && role == "client" {
+		var access models.BoardAccess
+		if err := database.DB.Where("board_id = ? AND target_email = ?", parsedBoardID, email).First(&access).Error; err == nil {
+			// Clients with board access can update ClientStatus/Feedback only
+			if err2 := database.DB.Where("id = ?", id).First(&board).Error; err2 == nil {
+				if payload.ClientStatus != "" {
+					board.ClientStatus = payload.ClientStatus
+				}
+				if payload.ClientFeedback != "" {
+					board.ClientFeedback = payload.ClientFeedback
+				}
+				database.DB.Save(&board)
+				return c.JSON(fiber.Map{"message": "Feedback saved", "board": board})
+			}
 		}
-		if payload.FullState != "" {
-			board.FullState = json.RawMessage(payload.FullState)
-		}
+	}
+
+	if !canEdit {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied or view-only mode"})
+	}
+
+	// Apply updates
+	if payload.Title != "" {
+		board.Title = payload.Title
+	}
+	if payload.FullState != "" {
+		board.FullState = json.RawMessage(payload.FullState)
+	}
+	if role == "admin" || role == "member" {
 		if payload.ClientStatus != "" {
 			board.ClientStatus = payload.ClientStatus
 		}
 		if payload.ClientFeedback != "" {
 			board.ClientFeedback = payload.ClientFeedback
+		}
+		if payload.LinkedTaskID != nil {
+		strTID := fmt.Sprintf("%v", payload.LinkedTaskID)
+		if strTID != "" && strTID != "0" && strTID != "<nil>" {
+			var tid uint
+			fmt.Sscanf(strTID, "%d", &tid)
+			board.LinkedTaskID = tid
+		} else {
+			board.LinkedTaskID = 0
+		}
+	}
+		if payload.LinkedDocID != nil {
+			strID := fmt.Sprintf("%v", payload.LinkedDocID)
+			if strID == "" || strID == "<nil>" {
+				board.LinkedDocID = nil
+			} else {
+				bid, err := uuid.Parse(strID)
+				if err == nil {
+					board.LinkedDocID = &bid
+				}
+			}
 		}
 	}
 

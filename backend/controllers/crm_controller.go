@@ -271,29 +271,39 @@ func UpdateTask(c *fiber.Ctx) error {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied"})
 		}
 
-		// Members can only update Status
-		type StatusUpdate struct {
-			Status string `json:"status"`
+		// Members can update Status and Links
+		type MemberUpdate struct {
+			Status        string `json:"status"`
+			LinkedBoardID string `json:"linked_board_id"`
+			LinkedDocID   string `json:"linked_doc_id"`
 		}
-		var su StatusUpdate
-		if err := c.BodyParser(&su); err != nil {
+		var mu MemberUpdate
+		if err := c.BodyParser(&mu); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 		}
 		
-		// Restriction: Members can only move to "To Do" or "In Progress" or "In Review"
-		if su.Status != "To Do" && su.Status != "In Progress" && su.Status != "In Review" {
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Members can only set status to 'To Do', 'In Progress', or 'In Review'."})
+		if mu.Status != "" {
+			// Restriction: Members can only move to "To Do" or "In Progress" or "In Review"
+			if mu.Status != "To Do" && mu.Status != "In Progress" && mu.Status != "In Review" {
+				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Members can only set status to 'To Do', 'In Progress', or 'In Review'."})
+			}
+			
+			// If moving to In Review, notify admin
+			if mu.Status == "In Review" && task.Status != "In Review" {
+				subject := fmt.Sprintf("🧐 Task Review Request: %s", task.Title)
+				body := fmt.Sprintf("Hey Admin,\n\nTeam member %s has completed a task and requested a review:\n\n📌 Task: %s\n🏢 Client: %s\n\nPlease login to the CRM to approve and mark as Done.\n\n— Reecho Media CRM Auto-Notify", member.Name, task.Title, task.Client)
+				go sendEmail("priyathamtella@gmail.com", subject, body)
+			}
+			task.Status = mu.Status
+		}
+
+		if mu.LinkedBoardID != "" {
+			task.LinkedBoardID = mu.LinkedBoardID
+		}
+		if mu.LinkedDocID != "" {
+			task.LinkedDocID = mu.LinkedDocID
 		}
 		
-		// If moving to In Review, notify admin
-		if su.Status == "In Review" && task.Status != "In Review" {
-			subject := fmt.Sprintf("🧐 Task Review Request: %s", task.Title)
-			body := fmt.Sprintf("Hey Admin,\n\nTeam member %s has completed a task and requested a review:\n\n📌 Task: %s\n🏢 Client: %s\n\nPlease login to the CRM to approve and mark as Done.\n\n— Reecho Media CRM Auto-Notify", member.Name, task.Title, task.Client)
-			// Assuming admin email is known or fetched. For now using a placeholder or common admin email.
-			go sendEmail("priyathamtella@gmail.com", subject, body)
-		}
-		
-		task.Status = su.Status
 		database.DB.Save(&task)
 		return c.JSON(task)
 	}
@@ -302,6 +312,7 @@ func UpdateTask(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Admins only"})
 	}
 
+	// Admin update path
 	if err := c.BodyParser(&task); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
 	}

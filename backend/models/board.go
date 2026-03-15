@@ -9,20 +9,22 @@ import (
 )
 
 type Board struct {
-	ID             uuid.UUID       `gorm:"type:uuid;primaryKey" json:"ID"`
-	Title          string          `gorm:"not null" json:"Title"`
-	OwnerID        uuid.UUID       `gorm:"type:uuid;not null" json:"OwnerID"`
+	ID             uuid.UUID       `gorm:"type:uuid;primaryKey" json:"id"`
+	Title          string          `gorm:"not null" json:"title"`
+	OwnerID        uuid.UUID       `gorm:"type:uuid;not null" json:"ownerId"`
 	FullState      json.RawMessage `gorm:"type:jsonb;default:'{}'" json:"fullState"`
-	Zoom           float64         `gorm:"default:1.0" json:"Zoom"`
-	PanX           float64         `gorm:"default:0" json:"PanX"`
-	PanY           float64         `gorm:"default:0" json:"PanY"`
-	ClientName     string          `gorm:"default:''" json:"ClientName"`
-	ClientStatus   string          `gorm:"default:'Pending'" json:"ClientStatus"`
-	ClientFeedback string          `gorm:"type:text;default:''" json:"ClientFeedback"`
-	ReviewStatus   string          `gorm:"default:''" json:"ReviewStatus"`  // '' | 'in_review' | 'approved'
-	ReviewerName   string          `gorm:"default:''" json:"ReviewerName"`  // member who submitted
-	CreatedAt      time.Time       `json:"CreatedAt"`
-	UpdatedAt      time.Time       `json:"UpdatedAt"`
+	Zoom           float64         `gorm:"default:1.0" json:"zoom"`
+	PanX           float64         `gorm:"default:0" json:"panX"`
+	PanY           float64         `gorm:"default:0" json:"panY"`
+	ClientName     string          `gorm:"default:''" json:"clientName"`
+	ClientStatus   string          `gorm:"default:'Pending'" json:"clientStatus"`
+	ClientFeedback string          `gorm:"type:text;default:''" json:"clientFeedback"`
+	LinkedTaskID   uint            `json:"linkedTaskId"`
+	LinkedDocID    *uuid.UUID      `gorm:"type:uuid" json:"linkedDocId"`
+	ReviewStatus   string          `gorm:"default:''" json:"reviewStatus"`
+	ReviewerName   string          `gorm:"default:''" json:"reviewerName"`
+	CreatedAt      time.Time       `json:"createdAt"`
+	UpdatedAt      time.Time       `json:"updatedAt"`
 }
 
 // THIS IS CRITICAL: Generates the UUID before the DB insert

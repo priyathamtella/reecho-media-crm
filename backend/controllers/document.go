@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"reecho_media_crm/database"
 	"reecho_media_crm/models"
 
@@ -62,48 +63,88 @@ func GetAllDocuments(c *fiber.Ctx) error {
 	adminIDStr, role, email := getAdminContext(c)
 
 	var docs []models.Document
-	if role == "member" {
-		// Get member's DB record
-		var member models.TeamMember
-		database.DB.Where("email = ?", email).First(&member)
+	seen := map[uuid.UUID]bool{}
+	
+	// 1. Owned
+	var ownDocs []models.Document
+	database.DB.Where("owner_id = ?", userID).Order("updated_at desc").Find(&ownDocs)
+	for _, d := range ownDocs {
+		docs = append(docs, d)
+		seen[d.ID] = true
+	}
 
-		// Get shared doc IDs
-		var accesses []models.DocAccess
-		database.DB.Where("member_id = ? AND admin_id = ?", member.ID, adminIDStr).Find(&accesses)
-		sharedIDs := make([]uuid.UUID, len(accesses))
-		for i, a := range accesses {
-			sharedIDs[i] = a.DocID
-		}
+	// 2. Shared via DocAccess
+	var accesses []models.DocAccess
+	database.DB.Where("target_email = ?", email).Find(&accesses)
+	
+	var sharedIDs []uuid.UUID
+	for _, a := range accesses {
+		sharedIDs = append(sharedIDs, a.DocID)
+	}
 
-		// Fetch own docs
-		var ownDocs []models.Document
-		database.DB.Where("owner_id = ?", userID).Order("updated_at desc").Find(&ownDocs)
-
-		// Fetch shared docs
+	if len(sharedIDs) > 0 {
 		var sharedDocs []models.Document
-		if len(sharedIDs) > 0 {
-			database.DB.Where("id IN ?", sharedIDs).Order("updated_at desc").Find(&sharedDocs)
-		}
-
-		// Merge
-		seen := map[uuid.UUID]bool{}
-		for _, d := range ownDocs {
-			if !seen[d.ID] {
-				docs = append(docs, d)
-				seen[d.ID] = true
-			}
-		}
+		database.DB.Where("id IN ?", sharedIDs).Order("updated_at desc").Find(&sharedDocs)
 		for _, d := range sharedDocs {
 			if !seen[d.ID] {
 				docs = append(docs, d)
 				seen[d.ID] = true
 			}
 		}
-	} else {
-		if err := database.DB.Where("owner_id = ?", userID).Order("updated_at desc").Find(&docs).Error; err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": "Could not fetch documents"})
+	}
+
+	// 4. Assigned Task docs (for members)
+	// NOTE: Admin-owned docs are NOT automatically shown to members.
+	// Members only see docs they own (step 1) or docs explicitly shared (step 2).
+	if role == "member" {
+		var member models.TeamMember
+		if err := database.DB.Where("email = ?", email).First(&member).Error; err == nil {
+			var taskIDs []uint
+			database.DB.Model(&models.Task{}).
+				Where("user_id = ? AND (assignees LIKE ? OR assignees LIKE ?)",
+					adminIDStr, "%"+member.Name+"%", "%"+member.Initials+"%").
+				Pluck("id", &taskIDs)
+
+			if len(taskIDs) > 0 {
+				var taskDocs []models.Document
+				database.DB.Where("linked_task_id IN ?", taskIDs).Find(&taskDocs)
+				for _, d := range taskDocs {
+					if !seen[d.ID] {
+						docs = append(docs, d)
+						seen[d.ID] = true
+					}
+				}
+			}
+			// Admin-owned docs are NOT added here. Members only see their own
+			// docs and docs the admin explicitly shared with them.
 		}
 	}
+
+	// 5. Admin pool view (Admins see everything in their workspace)
+	if role == "admin" {
+		adminID, _ := uuid.Parse(adminIDStr)
+		var memberIDs []uuid.UUID
+		database.DB.Table("users").
+			Select("users.id").
+			Joins("inner join team_members on team_members.email = users.email").
+			Where("team_members.user_id = ?", adminIDStr).
+			Find(&memberIDs)
+
+		var adminPoolDocs []models.Document
+		query := database.DB.Where("owner_id = ?", adminID)
+		if len(memberIDs) > 0 {
+			query = database.DB.Where("owner_id = ? OR owner_id IN ?", adminID, memberIDs)
+		}
+		query.Order("updated_at desc").Find(&adminPoolDocs)
+
+		for _, d := range adminPoolDocs {
+			if !seen[d.ID] {
+				docs = append(docs, d)
+				seen[d.ID] = true
+			}
+		}
+	}
+
 	return c.JSON(docs)
 }
 
@@ -116,23 +157,83 @@ func GetDocument(c *fiber.Ctx) error {
 	parsedDocID, _ := uuid.Parse(docID)
 
 	var doc models.Document
-	// Try owned first
+	permission := "viewer"
+
+	// 1. Owned
 	err := database.DB.Where("id = ? AND owner_id = ?", docID, userID).First(&doc).Error
-	if err != nil && role == "member" {
-		// Check shared
+	if err == nil {
+		permission = "editor"
+		return c.JSON(fiber.Map{
+			"doc":        doc,
+			"permission": permission,
+		})
+	}
+
+	// 2. Task assignment check (for members)
+	if role == "member" {
 		var member models.TeamMember
 		database.DB.Where("email = ?", email).First(&member)
-		var access models.DocAccess
-		if err2 := database.DB.Where("doc_id = ? AND member_id = ? AND admin_id = ?", parsedDocID, member.ID, adminIDStr).First(&access).Error; err2 != nil {
-			return c.Status(404).JSON(fiber.Map{"error": "Document not found"})
+		var task models.Task
+		// Check for task assigned to this member that is linked to this doc
+		// Note: doc.LinkedTaskID is uint, task.ID is uint
+		errT := database.DB.Where("user_id = ? AND (assignees LIKE ? OR assignees LIKE ?)",
+			adminIDStr, "%"+member.Name+"%", "%"+member.Initials+"%").
+			Joins("inner join documents on documents.linked_task_id = tasks.id").
+			Where("documents.id = ?", docID).First(&task).Error
+		if errT == nil {
+			if err2 := database.DB.Where("id = ?", docID).First(&doc).Error; err2 == nil {
+				permission = "editor"
+				return c.JSON(fiber.Map{
+					"doc":        doc,
+					"permission": permission,
+				})
+			}
 		}
-		if err3 := database.DB.Where("id = ?", docID).First(&doc).Error; err3 != nil {
-			return c.Status(404).JSON(fiber.Map{"error": "Document not found"})
-		}
-	} else if err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "Document not found"})
 	}
-	return c.JSON(doc)
+
+	// 3. Shared
+	var access models.DocAccess
+	err = database.DB.Where("doc_id = ? AND target_email = ?", parsedDocID, email).First(&access).Error
+	if err == nil {
+		if err2 := database.DB.Where("id = ?", docID).First(&doc).Error; err2 == nil {
+			permission = access.Permission
+			return c.JSON(fiber.Map{
+				"doc":        doc,
+				"permission": permission,
+			})
+		}
+	}
+
+	if role == "admin" {
+		adminID, _ := uuid.Parse(adminIDStr)
+		if err := database.DB.Where("id = ? AND owner_id = ?", docID, adminID).First(&doc).Error; err == nil {
+			permission = "editor"
+			return c.JSON(fiber.Map{
+				"doc":        doc,
+				"permission": permission,
+			})
+		} else {
+			// Check if the owner is a team member managed by this admin
+			var memberIDs []uuid.UUID
+			database.DB.Table("users").
+				Select("users.id").
+				Joins("inner join team_members on team_members.email = users.email").
+				Where("team_members.user_id = ?", adminIDStr).
+				Find(&memberIDs)
+			
+			if len(memberIDs) > 0 {
+				if err := database.DB.Where("id = ? AND owner_id IN ?", docID, memberIDs).First(&doc).Error; err == nil {
+					permission = "editor"
+					return c.JSON(fiber.Map{
+						"doc":        doc,
+						"permission": permission,
+					})
+				}
+			}
+		}
+	}
+
+	return c.Status(404).JSON(fiber.Map{"error": "Document not found"})
 }
 
 // UpdateDocument: Save document content + title (owned or shared)
@@ -144,25 +245,52 @@ func UpdateDocument(c *fiber.Ctx) error {
 	parsedDocID, _ := uuid.Parse(docID)
 
 	var doc models.Document
-	err := database.DB.Where("id = ? AND owner_id = ?", docID, userID).First(&doc).Error
-	if err != nil && role == "member" {
-		var member models.TeamMember
-		database.DB.Where("email = ?", email).First(&member)
-		var access models.DocAccess
-		if err2 := database.DB.Where("doc_id = ? AND member_id = ? AND admin_id = ?", parsedDocID, member.ID, adminIDStr).First(&access).Error; err2 != nil {
-			return c.Status(404).JSON(fiber.Map{"error": "Document not found"})
+	var canEdit bool = false
+
+	// Check eligibility
+	if role == "admin" {
+		adminID, _ := uuid.Parse(adminIDStr)
+		if err := database.DB.Where("id = ? AND owner_id = ?", docID, adminID).First(&doc).Error; err == nil {
+			canEdit = true
+		} else {
+			// Check if the owner is a team member managed by this admin
+			var memberIDs []uuid.UUID
+			database.DB.Table("users").
+				Select("users.id").
+				Joins("inner join team_members on team_members.email = users.email").
+				Where("team_members.user_id = ?", adminIDStr).
+				Find(&memberIDs)
+			
+			if len(memberIDs) > 0 {
+				if err := database.DB.Where("id = ? AND owner_id IN ?", docID, memberIDs).First(&doc).Error; err == nil {
+					canEdit = true
+				}
+			}
 		}
-		if err3 := database.DB.Where("id = ?", docID).First(&doc).Error; err3 != nil {
-			return c.Status(404).JSON(fiber.Map{"error": "Document not found"})
+	} else {
+		// Owned
+		if err := database.DB.Where("id = ? AND owner_id = ?", docID, userID).First(&doc).Error; err == nil {
+			canEdit = true
+		} else {
+			// Shared as editor
+			var access models.DocAccess
+			if err2 := database.DB.Where("doc_id = ? AND target_email = ? AND permission = 'editor'", parsedDocID, email).First(&access).Error; err2 == nil {
+				if err3 := database.DB.Where("id = ?", docID).First(&doc).Error; err3 == nil {
+					canEdit = true
+				}
+			}
 		}
-	} else if err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "Document not found"})
+	}
+
+	if !canEdit {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied or read-only mode"})
 	}
 
 	type UpdatePayload struct {
-		Title         string  `json:"title"`
-		Content       string  `json:"content"`
-		LinkedBoardID *string `json:"linkedBoardId"`
+		Title         string      `json:"title"`
+		Content       string      `json:"content"`
+		LinkedBoardID *string     `json:"linkedBoardId"`
+		LinkedTaskID  interface{} `json:"linkedTaskId"`
 	}
 	var payload UpdatePayload
 	if err := c.BodyParser(&payload); err != nil {
@@ -182,6 +310,16 @@ func UpdateDocument(c *fiber.Ctx) error {
 			if err == nil {
 				doc.LinkedBoardID = &bid
 			}
+		}
+	}
+	if payload.LinkedTaskID != nil {
+		strTID := fmt.Sprintf("%v", payload.LinkedTaskID)
+		if strTID != "" && strTID != "0" && strTID != "<nil>" {
+			var tid uint
+			fmt.Sscanf(strTID, "%d", &tid)
+			doc.LinkedTaskID = tid
+		} else {
+			doc.LinkedTaskID = 0
 		}
 	}
 
@@ -207,15 +345,39 @@ func DeleteDocument(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Document deleted"})
 }
 
-// GetDocumentsByBoard: Get all documents linked to a specific board
+// GetDocumentsByBoard: Get all documents linked to a specific board (accessible to user)
 func GetDocumentsByBoard(c *fiber.Ctx) error {
 	userIDStr := c.Locals("userID").(string)
 	userID, _ := uuid.Parse(userIDStr)
+	_, _, email := getAdminContext(c)
 	boardID := c.Params("boardId")
 
 	var docs []models.Document
-	if err := database.DB.Where("linked_board_id = ? AND owner_id = ?", boardID, userID).Find(&docs).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Could not fetch documents"})
+	
+	// Owned docs linked to board
+	database.DB.Where("linked_board_id = ? AND owner_id = ?", boardID, userID).Find(&docs)
+	
+	// Shared docs linked to board
+	var sharedAccess []models.DocAccess
+	database.DB.Where("target_email = ?", email).Find(&sharedAccess)
+	
+	var sharedIDs []uuid.UUID
+	for _, a := range sharedAccess {
+		sharedIDs = append(sharedIDs, a.DocID)
 	}
+	
+	if len(sharedIDs) > 0 {
+		var sharedDocs []models.Document
+		database.DB.Where("linked_board_id = ? AND id IN ?", boardID, sharedIDs).Find(&sharedDocs)
+		// Simple merge avoiding duplicates
+		seen := map[uuid.UUID]bool{}
+		for _, d := range docs { seen[d.ID] = true }
+		for _, sd := range sharedDocs {
+			if !seen[sd.ID] {
+				docs = append(docs, sd)
+			}
+		}
+	}
+
 	return c.JSON(docs)
 }
