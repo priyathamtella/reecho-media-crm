@@ -281,13 +281,13 @@ func UpdateTask(c *fiber.Ctx) error {
 		if err := c.BodyParser(&mu); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 		}
-
+		
 		if mu.Status != "" {
 			// Restriction: Members can only move to "To Do" or "In Progress" or "In Review"
 			if mu.Status != "To Do" && mu.Status != "In Progress" && mu.Status != "In Review" {
 				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Members can only set status to 'To Do', 'In Progress', or 'In Review'."})
 			}
-
+			
 			// If moving to In Review, notify admin
 			if mu.Status == "In Review" && task.Status != "In Review" {
 				subject := fmt.Sprintf("🧐 Task Review Request: %s", task.Title)
