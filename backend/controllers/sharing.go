@@ -98,7 +98,7 @@ func ShareBoard(c *fiber.Ctx) error {
 		var board models.Board
 		database.DB.Where("id = ?", boardID).First(&board)
 		subject := "A board has been shared with you"
-		body := fmt.Sprintf("Hi,\n\nThe board \"%s\" has been shared with you as a %s.\n\nYou can view it here: http://localhost:5173/boards/%s\n\n— Reecho Media Team", 
+		body := fmt.Sprintf("Hi,\n\nThe board \"%s\" has been shared with you as a %s.\n\nYou can view it here: https://reechomedia.com/boards/%s\n\n— Reecho Media Team", 
 			board.Title, target.Permission, boardID)
 		sendEmail(target.TargetEmail, subject, body)
 	}
@@ -165,7 +165,7 @@ func ShareDoc(c *fiber.Ctx) error {
 		var doc models.Document
 		database.DB.Where("id = ?", docID).First(&doc)
 		subject := "A document has been shared with you"
-		body := fmt.Sprintf("Hi,\n\nThe document \"%s\" has been shared with you as a %s.\n\nYou can view it here: http://localhost:5173/docs/%s\n\n— Reecho Media Team", 
+		body := fmt.Sprintf("Hi,\n\nThe document \"%s\" has been shared with you as a %s.\n\nYou can view it here: https://reechomedia.com/docs/%s\n\n— Reecho Media Team", 
 			doc.Title, target.Permission, docID)
 		sendEmail(target.TargetEmail, subject, body)
 	}
@@ -215,7 +215,7 @@ func SubmitDocForReview(c *fiber.Ctx) error {
 	// Notify admin (use the adminID string or just the known admin email)
 	adminEmail := "priyathamtella@gmail.com"
 	subject := "Document Review Requested"
-	body := fmt.Sprintf("Hi Admin,\n\nMember %s has submitted the document \"%s\" for review.\n\nView and Approve here: http://localhost:5173/docs/%s\n\n— Reecho Media System", 
+	body := fmt.Sprintf("Hi Admin,\n\nMember %s has submitted the document \"%s\" for review.\n\nView and Approve here: https://reechomedia.com/docs/%s\n\n— Reecho Media System", 
 		member.Name, doc.Title, docID)
 	sendEmail(adminEmail, subject, body)
 
@@ -265,7 +265,7 @@ func SubmitBoardForReview(c *fiber.Ctx) error {
 	// Notify admin
 	adminEmail := "priyathamtella@gmail.com"
 	subject := "Board Review Requested"
-	body := fmt.Sprintf("Hi Admin,\n\nMember %s has submitted the board \"%s\" for review.\n\nView and Approve here: http://localhost:5173/boards/%s\n\n— Reecho Media System", 
+	body := fmt.Sprintf("Hi Admin,\n\nMember %s has submitted the board \"%s\" for review.\n\nView and Approve here: https://reechomedia.com/boards/%s\n\n— Reecho Media System", 
 		member.Name, board.Title, boardIDStr)
 	sendEmail(adminEmail, subject, body)
 

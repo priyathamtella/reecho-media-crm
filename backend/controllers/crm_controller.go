@@ -54,7 +54,7 @@ You have been invited to join the Reecho Media team as a %s.
 You can now log in to the portal.
 Email: %s
 Password: %s
-Login Portal: http://localhost:5173/login
+Login Portal: https://reechomedia.com/login
 
 Welcome aboard!
 
@@ -72,7 +72,7 @@ Congratulations — you are now officially teamed up with Reecho Media!
 We've set up a dedicated Client Hub for you to track progress.
 Email: %s
 Password: %s
-Login Portal: http://localhost:5173/login
+Login Portal: https://reechomedia.com/login
 
 Your package: %s
 
