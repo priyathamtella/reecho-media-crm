@@ -152,7 +152,8 @@ const AppLayout = ({ children }) => {
                       <img 
                         src="https://res.cloudinary.com/dxcygn064/image/upload/v1773517532/Untitled_design__1_-removebg-preview_h65kii.png" 
                         alt="Reecho Media" 
-                        className="w-full h-full object-contain dark:invert transition-all duration-300 scale-300" 
+                        className="w-full h-full object-contain transition-all duration-300 scale-300"
+                        style={{ filter: isDark ? 'invert(1)' : 'none' }}
                       />
                     </div>
                     <div>
