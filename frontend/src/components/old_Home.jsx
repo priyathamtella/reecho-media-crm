@@ -159,14 +159,14 @@ const Home = ({ isDark = false, boards = [], fetchBoards, setShowModal }) => {
       const token = localStorage.getItem("token");
       // 1. Create the board
       const res = await axios.post(
-        "http://localhost:5050/api/boards",
+        "https://your-backend-url.com/api/boards",
         { title: template.title },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       // 2. Immediately sync the demo items into the board
       if (template.items?.length) {
         await axios.post(
-          `http://localhost:5050/api/boards/${res.data.ID}/sync`,
+          `https://your-backend-url.com/api/boards/${res.data.ID}/sync`,
           {
             Title: template.title,
             fullState: JSON.stringify({ items: template.items, connections: template.connections || [] })
