@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import ShareModal from "./ShareModal";
 
-const API = "https://your-backend-url.com/api";
+const API = "https://reechomedia.com/api";
 
 const AppLayout = ({ children }) => {
     const navigate = useNavigate();

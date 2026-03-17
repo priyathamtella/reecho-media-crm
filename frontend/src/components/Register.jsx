@@ -15,7 +15,7 @@ const Register = () => {
     e.preventDefault();
     try {
       // Hits app.Post("/register", controllers.Register) in your Go backend
-      const response = await axios.post('https://your-backend-url.com/register', {
+      const response = await axios.post('https://reechomedia.com/register', {
         name,
         email,
         password // Will be hashed via bcrypt on the backend

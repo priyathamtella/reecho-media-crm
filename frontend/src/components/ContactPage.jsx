@@ -26,7 +26,7 @@ const ContactPage = () => {
     const whatsappUrl = `https://wa.me/919121492646?text=${encodedText}`;
 
     try {
-      const res = await fetch('https://your-backend-url.com/contact', {
+      const res = await fetch('https://reechomedia.com/contact', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

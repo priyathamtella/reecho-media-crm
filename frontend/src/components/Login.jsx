@@ -24,7 +24,7 @@ const Login = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post('https://your-backend-url.com/login', {
+      const response = await axios.post('https://reechomedia.com/login', {
         email,
         password
       });
