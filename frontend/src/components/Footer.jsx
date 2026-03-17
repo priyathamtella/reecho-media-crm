@@ -2,6 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Instagram } from 'lucide-react';
 
+const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+
 const Footer = () => {
   return (
     <footer className="bg-[var(--text)] text-[var(--bg)] relative flex flex-col pt-24 mt-20 overflow-hidden w-full transition-colors duration-300">
@@ -27,19 +29,19 @@ const Footer = () => {
 
          <div className="md:col-span-3 flex flex-col gap-4 text-sm font-semibold uppercase tracking-wider">
            <h4 className="text-[var(--brand)] mb-4 text-xs tracking-[0.3em]">QUICK LINKS</h4>
-           <Link to="/" className="hover:text-[var(--brand)] transition-colors">Home</Link>
-           <Link to="/about" className="hover:text-[var(--brand)] transition-colors">About Us</Link>
-           <Link to="/contact" className="hover:text-[var(--brand)] transition-colors">Contact</Link>
-           <Link to="/services" className="hover:text-[var(--brand)] transition-colors">Our Services</Link>
-           <Link to="/campaigns" className="hover:text-[var(--brand)] transition-colors">Campaigns</Link>
+           <Link to="/" onClick={scrollToTop} className="hover:text-[var(--brand)] transition-colors">Home</Link>
+           <Link to="/about" onClick={scrollToTop} className="hover:text-[var(--brand)] transition-colors">About Us</Link>
+           <Link to="/contact" onClick={scrollToTop} className="hover:text-[var(--brand)] transition-colors">Contact</Link>
+           <Link to="/services" onClick={scrollToTop} className="hover:text-[var(--brand)] transition-colors">Our Services</Link>
+           <Link to="/campaigns" onClick={scrollToTop} className="hover:text-[var(--brand)] transition-colors">Campaigns</Link>
          </div>
 
          <div className="md:col-span-3 flex flex-col gap-4 text-sm font-semibold uppercase tracking-wider">
            <h4 className="text-[var(--brand)] mb-4 text-xs tracking-[0.3em]">EXPLORE WORK</h4>
-           <Link to="/work/our-photography" className="hover:text-[var(--brand)] transition-colors">Photography</Link>
-           <Link to="/work/our-videography" className="hover:text-[var(--brand)] transition-colors">Videography</Link>
-           <Link to="/work/ui-ux" className="hover:text-[var(--brand)] transition-colors">UI / UX Design</Link>
-           <Link to="/work/3d-animation" className="hover:text-[var(--brand)] transition-colors">3D Animation</Link>
+           <Link to="/work/our-photography" onClick={scrollToTop} className="hover:text-[var(--brand)] transition-colors">Photography</Link>
+           <Link to="/work/our-videography" onClick={scrollToTop} className="hover:text-[var(--brand)] transition-colors">Videography</Link>
+           <Link to="/work/ui-ux" onClick={scrollToTop} className="hover:text-[var(--brand)] transition-colors">UI / UX Design</Link>
+           <Link to="/work/3d-animation" onClick={scrollToTop} className="hover:text-[var(--brand)] transition-colors">3D Animation</Link>
          </div>
 
       </div>
