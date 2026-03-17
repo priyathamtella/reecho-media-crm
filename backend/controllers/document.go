@@ -331,14 +331,44 @@ func UpdateDocument(c *fiber.Ctx) error {
 
 // DeleteDocument: Permanently delete a document
 func DeleteDocument(c *fiber.Ctx) error {
-	userIDStr := c.Locals("userID").(string)
-	userID, _ := uuid.Parse(userIDStr)
+	adminIDStr, role, _ := getAdminContext(c)
+	realUserIDStr := c.Locals("userID").(string)
+	realUserID, _ := uuid.Parse(realUserIDStr)
 	docID := c.Params("id")
 
 	var doc models.Document
-	if err := database.DB.Where("id = ? AND owner_id = ?", docID, userID).First(&doc).Error; err != nil {
+	if err := database.DB.Where("id = ?", docID).First(&doc).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Document not found"})
 	}
+
+	canDelete := false
+	if role == "admin" {
+		adminID, _ := uuid.Parse(adminIDStr)
+		if doc.OwnerID == adminID {
+			canDelete = true
+		} else {
+			// Check if owner is a member for this admin
+			var memberCount int64
+			database.DB.Table("team_members").
+				Joins("inner join users on users.email = team_members.email").
+				Where("team_members.user_id = ? AND users.id = ?", adminIDStr, doc.OwnerID).
+				Count(&memberCount)
+			if memberCount > 0 {
+				canDelete = true
+			}
+		}
+	} else if doc.OwnerID == realUserID {
+		canDelete = true
+	}
+
+	if !canDelete {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "You don't have permission to delete this document"})
+	}
+
+	// 1. Delete associated access records
+	database.DB.Where("doc_id = ?", doc.ID).Delete(&models.DocAccess{})
+
+	// 2. Delete the document
 	if err := database.DB.Delete(&doc).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to delete document"})
 	}

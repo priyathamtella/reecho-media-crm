@@ -368,15 +368,45 @@ func SyncBoard(c *fiber.Ctx) error {
 
 // DeleteBoard: Permanently removes a board (only if the user owns it)
 func DeleteBoard(c *fiber.Ctx) error {
-	userIDStr := c.Locals("userID").(string)
-	userID, _ := uuid.Parse(userIDStr)
+	adminIDStr, role, _ := getAdminContext(c)
+	realUserIDStr := c.Locals("userID").(string)
+	realUserID, _ := uuid.Parse(realUserIDStr)
 	boardID := c.Params("id")
 
 	var board models.Board
-	if err := database.DB.Where("id = ? AND owner_id = ?", boardID, userID).First(&board).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "Board not found or you don't own it"})
+	if err := database.DB.Where("id = ?", boardID).First(&board).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Board not found"})
 	}
 
+	canDelete := false
+	if role == "admin" {
+		adminID, _ := uuid.Parse(adminIDStr)
+		// Admin can delete their own or their team members' boards
+		if board.OwnerID == adminID {
+			canDelete = true
+		} else {
+			// Check if owner is a member for this admin
+			var memberCount int64
+			database.DB.Table("team_members").
+				Joins("inner join users on users.email = team_members.email").
+				Where("team_members.user_id = ? AND users.id = ?", adminIDStr, board.OwnerID).
+				Count(&memberCount)
+			if memberCount > 0 {
+				canDelete = true
+			}
+		}
+	} else if board.OwnerID == realUserID {
+		canDelete = true
+	}
+
+	if !canDelete {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "You don't have permission to delete this board"})
+	}
+
+	// 1. Delete associated access records
+	database.DB.Where("board_id = ?", board.ID).Delete(&models.BoardAccess{})
+
+	// 2. Delete the board
 	if err := database.DB.Delete(&board).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to delete board"})
 	}

@@ -274,8 +274,8 @@ func UpdateTask(c *fiber.Ctx) error {
 		// Members can update Status and Links
 		type MemberUpdate struct {
 			Status        string `json:"status"`
-			LinkedBoardID string `json:"linked_board_id"`
-			LinkedDocID   string `json:"linked_doc_id"`
+			LinkedBoardID string `json:"linkedBoardId"`
+			LinkedDocID   string `json:"linkedDocId"`
 		}
 		var mu MemberUpdate
 		if err := c.BodyParser(&mu); err != nil {
@@ -394,7 +394,7 @@ func UpdateInvoice(c *fiber.Ctx) error {
 
 	type UpdatePayload struct {
 		Status        string `json:"status"`
-		DeclineReason string `json:"decline_reason"`
+		DeclineReason string `json:"declineReason"`
 	}
 	var up UpdatePayload
 	if err := c.BodyParser(&up); err != nil {
@@ -487,12 +487,48 @@ func DeleteTeamMember(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Member not found"})
 	}
 
-	// Delete user first
-	database.DB.Where("email = ?", member.Email).Delete(&models.User{})
-	// Then delete member
+	// 1. Find the actual user record to get their UUID ID and email
+	var user models.User
+	if err := database.DB.Where("email = ?", member.Email).First(&user).Error; err == nil {
+		uidStr := user.ID.String()
+
+		// 2. Delete all boards and docs owned by this member
+		database.DB.Where("owner_id = ?", user.ID).Delete(&models.Board{})
+		database.DB.Where("owner_id = ?", user.ID).Delete(&models.Document{})
+		
+		// 3. Delete all access records for this email
+		database.DB.Where("target_email = ?", user.Email).Delete(&models.BoardAccess{})
+		database.DB.Where("target_email = ?", user.Email).Delete(&models.DocAccess{})
+
+		// 4. Delete payout requests from this member
+		database.DB.Where("type = ? AND sender = ?", "payout", member.Email).Delete(&models.Invoice{})
+
+		// 5. Delete calendar events created by this member
+		database.DB.Where("user_id = ?", uidStr).Delete(&models.CalendarEvent{})
+
+		// 6. Clean up Task assignments
+		var tasks []models.Task
+		database.DB.Where("assignees LIKE ? OR assignees LIKE ?", "%"+member.Name+"%", "%"+member.Initials+"%").Find(&tasks)
+		for _, t := range tasks {
+			names := models.SplitAssignees(t.Assignees)
+			var updated []string
+			for _, n := range names {
+				if n != member.Name && n != member.Initials {
+					updated = append(updated, n)
+				}
+			}
+			t.Assignees = strings.Join(updated, ",")
+			database.DB.Save(&t)
+		}
+
+		// 7. Delete the credentials record
+		database.DB.Delete(&user)
+	}
+
+	// 8. Finally delete the team member record
 	database.DB.Delete(&member)
 
-	return c.JSON(fiber.Map{"message": "Team member removed and credentials invalidated"})
+	return c.JSON(fiber.Map{"message": "Team member and all associated workspace data (boards, docs, payouts, events) have been permanently deleted"})
 }
 
 func UpdateTeamMember(c *fiber.Ctx) error {
@@ -555,11 +591,21 @@ func GetCalendarEvents(c *fiber.Ctx) error {
 
 	if role == "client" {
 		var client models.Client
-		database.DB.Where("email = ?", email).First(&client)
-		database.DB.Where("user_id = ? AND client = ?", adminID, client.Name).Find(&events)
+		if err := database.DB.Where("email = ?", email).First(&client).Error; err == nil {
+			database.DB.Where("user_id = ? AND client = ?", adminID, client.Name).Find(&events)
+		}
 	} else if role == "member" {
-		// Members see all workspace events (view only)
-		database.DB.Where("user_id = ?", adminID).Find(&events)
+		var member models.TeamMember
+		database.DB.Where("email = ?", email).First(&member)
+		
+		var clientNames []string
+		database.DB.Model(&models.Task{}).
+			Where("user_id = ? AND (assignees LIKE ? OR assignees LIKE ?)", 
+				adminID, "%"+member.Name+"%", "%"+member.Initials+"%").
+			Distinct("client").
+			Pluck("client", &clientNames)
+		
+		database.DB.Where("user_id = ? AND client IN ?", adminID, clientNames).Find(&events)
 	} else {
 		database.DB.Where("user_id = ?", adminID).Find(&events)
 	}

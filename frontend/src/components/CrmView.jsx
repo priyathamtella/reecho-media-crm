@@ -75,12 +75,12 @@ export default function CrmView({ currentPage, setCurrentPage }) {
   // Client page filter
   const [clientFilter, setClientFilter] = useState("All");
 
-  const [fTask, setFTask] = useState({ title: "", tag: "Content", client: "", due_date: "", assignees: "", status: "To Do", linked_board_id: "", linked_doc_id: "" });
-  const [fClient, setFClient] = useState({ name: "", email: "", industry: "", package: "Full Service", status: "Active", monthly_value: "", initials: "", color: "av-purple" });
-  const [fTeam, setFTeam] = useState({ name: "", email: "", role: "", initials: "", color: "av-blue", workingOn: "", tasksNum: "0", tasksDone: "0", clientsNum: "0" });
-  const [fCal, setFCal] = useState({ title: "", client: "", platform: "instagram", date: "" });
-  const [fInv, setFInv] = useState({ invoice_id: "", client: "", service: "", amount: "", date: "", status: "Pending" });
-
+  const [fTask,   setFTask]   = useState({ title:"", tag:"Content", client:"", due_date:"", assignees:"", status:"To Do", linked_board_id: "", linked_doc_id: "" });
+  const [fClient, setFClient] = useState({ name:"", email:"", industry:"", package:"Full Service", status:"Active", monthly_value:"", initials:"", color:"av-purple" });
+  const [fTeam,   setFTeam]   = useState({ name:"", email:"", role:"", initials:"", color:"av-blue", working_on:"", tasks_num:"0", tasks_done:"0", clients_num:"0" });
+  const [fCal,    setFCal]    = useState({ title:"", client:"", platform:"instagram", date:"" });
+  const [fInv,    setFInv]    = useState({ invoice_id:"", client:"", service:"", amount:"", date:"", status:"Pending" });
+  
   // Change Password state
   const [showPassModal, setShowPassModal] = useState(false);
   const [passForm, setPassForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
@@ -220,7 +220,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
   const tasksOnDay = (d) => {
     if (!d) return [];
     const ds = padDate(d);
-    return tasks.filter(t => t.due_date === ds);
+    return tasks.filter(t => t.dueDate === ds);
   };
   // calendar events on this day
   const eventsOnDay = (d) => {
@@ -236,23 +236,23 @@ export default function CrmView({ currentPage, setCurrentPage }) {
 
   // upcoming deadlines in next 7 days
   const soon = tasks.filter(t => {
-    if (!t.due_date || t.status === "Done") return false;
-    const diff = (new Date(t.due_date) - today) / 86400000;
+    if (!t.dueDate || t.status === "Done") return false;
+    const diff = (new Date(t.dueDate) - today) / 86400000;
     return diff >= 0 && diff <= 7;
-  }).sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
+  }).sort((a,b) => new Date(a.due_date)-new Date(b.due_date));
 
   // overdue tasks (past due, not done)
   const overdueTasks = tasks.filter(t => {
-    if (!t.due_date || t.status === "Done") return false;
-    return (new Date(t.due_date) - today) < 0;
+    if (!t.dueDate || t.status === "Done") return false;
+    return (new Date(t.dueDate) - today) < 0;
   });
 
   // Notification list
   const notifications = [
-    ...overdueTasks.map(t => ({ type: "overdue", text: `"${t.title}" is overdue`, sub: t.client, id: `od-${t.ID}` })),
-    ...soon.filter(t => { const d = (new Date(t.due_date) - today) / 86400000; return d <= 1; }).map(t => ({ type: "urgent", text: `"${t.title}" due today/tomorrow`, sub: t.client, id: `ug-${t.ID}` })),
-    ...invoices.filter(i => i.status === "Overdue").map(i => ({ type: "invoice", text: `Invoice ${i.invoice_id || "#" + i.ID} overdue`, sub: `₹${(i.amount || 0).toLocaleString("en-IN")} from ${i.client}`, id: `inv-${i.ID}` })),
-    ...invoices.filter(i => i.status === "Pending").slice(0, 2).map(i => ({ type: "pending", text: `Invoice ${i.invoice_id || "#" + i.ID} pending`, sub: `₹${(i.amount || 0).toLocaleString("en-IN")} from ${i.client}`, id: `pnd-${i.ID}` })),
+    ...overdueTasks.map(t => ({ type:"overdue", text:`"${t.title}" is overdue`, sub:t.client, id:`od-${t.ID}` })),
+    ...soon.filter(t=>{ const d=(new Date(t.due_date)-today)/86400000; return d<=1; }).map(t=>({ type:"urgent", text:`"${t.title}" due today/tomorrow`, sub:t.client, id:`ug-${t.ID}` })),
+    ...invoices.filter(i=>i.status==="Overdue").map(i=>({ type:"invoice", text:`Invoice ${i.invoice_id||"#"+i.ID} overdue`, sub:`₹${(i.amount||0).toLocaleString("en-IN")} from ${i.client}`, id:`inv-${i.ID}` })),
+    ...invoices.filter(i=>i.status==="Pending").slice(0,2).map(i=>({ type:"pending", text:`Invoice ${i.invoice_id||"#"+i.ID} pending`, sub:`₹${(i.amount||0).toLocaleString("en-IN")} from ${i.client}`, id:`pnd-${i.ID}` })),
   ];
 
   // Filtered clients list
@@ -271,8 +271,8 @@ export default function CrmView({ currentPage, setCurrentPage }) {
     const completed = assigned.filter(t => t.status === "Done");
     const inProgress = assigned.filter(t => t.status === "In Progress");
     return {
-      assigned: assigned.length || m.tasksNum || 0,
-      completed: completed.length || m.tasksDone || 0,
+      assigned:   assigned.length   || m.tasks_num  || 0,
+      completed:  completed.length  || m.tasks_done || 0,
       inProgress: inProgress.length,
     };
   };
@@ -283,7 +283,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
   const submitTask = async (e) => {
     e.preventDefault();
     await createTask(fTask);
-    setFTask({ title: "", tag: "Content", client: "", due_date: "", assignees: "", status: "To Do" });
+    setFTask({ title:"", tag:"Content", client:"", dueDate:"", assignees:"", status:"To Do" });
     setShowTask(false);
   };
   const submitEditTask = async (e) => {
@@ -293,22 +293,21 @@ export default function CrmView({ currentPage, setCurrentPage }) {
   };
   const submitClient = async (e) => {
     e.preventDefault();
-    const p = { ...fClient, monthly_value: parseInt(fClient.monthly_value) || 0, initials: fClient.initials || fClient.name.substring(0, 2).toUpperCase() };
+    const p = { ...fClient, monthlyValue: parseInt(fClient.monthlyValue)||0, initials: fClient.initials||fClient.name.substring(0,2).toUpperCase() };
     await axios.post(`${API}/clients`, p, auth());
-    setFClient({ name: "", email: "", industry: "", package: "Full Service", status: "Active", monthly_value: "", initials: "", color: "av-purple" });
+    setFClient({ name:"", email:"", industry:"", package:"Full Service", status:"Active", monthlyValue:"", initials:"", color:"av-purple" });
     setShowClient(false); fetchAll();
   };
   const submitTeam = async (e) => {
     e.preventDefault();
-    const p = {
-      ...fTeam,
-      tasksNum: parseInt(fTeam.tasksNum) || 0,
-      tasksDone: parseInt(fTeam.tasksDone) || 0,
-      clientsNum: parseInt(fTeam.clientsNum) || 0,
-      initials: fTeam.initials || fTeam.name.substring(0, 2).toUpperCase()
+    const p = { ...fTeam,
+      tasks_num: parseInt(fTeam.tasks_num)||0,
+      tasks_done: parseInt(fTeam.tasks_done)||0,
+      clients_num: parseInt(fTeam.clients_num)||0,
+      initials: fTeam.initials||fTeam.name.substring(0,2).toUpperCase()
     };
     await axios.post(`${API}/team`, p, auth());
-    setFTeam({ name: "", email: "", role: "", initials: "", color: "av-blue", workingOn: "", tasksNum: "0", tasksDone: "0", clientsNum: "0" });
+    setFTeam({ name:"", email:"", role:"", initials:"", color:"av-blue", working_on:"", tasks_num:"0", tasks_done:"0", clients_num:"0" });
     setShowTeam(false); fetchAll();
   };
   const submitEditMember = async (e) => {
@@ -328,7 +327,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
       title: `[${fCal.platform.charAt(0).toUpperCase() + fCal.platform.slice(1)}] ${fCal.title}`,
       tag: "Content",
       client: fCal.client,
-      due_date: fCal.date,
+      dueDate: fCal.date,
       status: "To Do",
       assignees: "",
     }, auth());
@@ -338,8 +337,8 @@ export default function CrmView({ currentPage, setCurrentPage }) {
   };
   const submitInv = async (e) => {
     e.preventDefault();
-    await axios.post(`${API}/invoices`, { ...fInv, amount: parseInt(fInv.amount) || 0 }, auth());
-    setFInv({ invoice_id: "", client: "", service: "", amount: "", date: "", status: "Pending" }); setShowInv(false); fetchAll();
+    await axios.post(`${API}/invoices`, { ...fInv, amount:parseInt(fInv.amount)||0 }, auth());
+    setFInv({ invoice_id:"", client:"", service:"", amount:"", date:"", status:"Pending" }); setShowInv(false); fetchAll();
   };
 
   // Open schedule modal with pre-filled date
@@ -349,7 +348,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
   };
   // Open task modal with pre-filled date
   const openTaskForDay = (day) => {
-    setFTask(prev => ({ ...prev, due_date: padDate(day) }));
+    setFTask(prev => ({ ...prev, dueDate: padDate(day) }));
     setShowTask(true);
   };
 
@@ -454,12 +453,12 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                     <span className="card-action" style={{ cursor: "pointer" }} onClick={() => setCurrentPage("tasks")}>Board →</span>
                   </div>
                   <div className="card-body">
-                    {tasks.filter(t => t.status === "In Progress").slice(0, 5).map(t => (
-                      <div key={t.ID} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-                        <div className={`avatar av-purple`} style={{ width: "28px", height: "28px", fontSize: "9px", flexShrink: 0 }}>{(t.assignees || "?").substring(0, 2).toUpperCase()}</div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: "600", fontSize: "12px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</div>
-                          <div style={{ fontSize: "10px", color: "var(--muted)" }}>{t.client} · Due {t.due_date || "—"}</div>
+                    {tasks.filter(t=>t.status==="In Progress").slice(0,5).map(t=>(
+                      <div key={t.ID} style={{ display:"flex", alignItems:"center", gap:"10px", padding:"8px 0", borderBottom:"1px solid var(--border)" }}>
+                        <div className={`avatar av-purple`} style={{width:"28px",height:"28px",fontSize:"9px",flexShrink:0}}>{(t.assignees||"?").substring(0,2).toUpperCase()}</div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontWeight:"600",fontSize:"12px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.title}</div>
+                          <div style={{fontSize:"10px",color:"var(--muted)"}}>{t.client} · Due {t.due_date||"—"}</div>
                         </div>
                         <span style={{ fontSize: "10px", background: `${TAG_COLORS[(t.tag || "content").toLowerCase()]}22`, color: TAG_COLORS[(t.tag || "content").toLowerCase()] || "#6c63ff", padding: "2px 7px", borderRadius: "4px", whiteSpace: "nowrap" }}>{t.tag}</span>
                       </div>
@@ -499,7 +498,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                           <div style={{ fontWeight: "600", fontSize: "12px" }}>{m.name}</div>
                           <div style={{ fontSize: "10px", color: "var(--muted)" }}>{m.role}</div>
                         </div>
-                        <div className="progress-bar" style={{ width: "55px" }}><div className="progress-fill" style={{ width: `${m.progress || 50}%` }}></div></div>
+                        <div className="progress-bar" style={{width:"55px"}}><div className="progress-fill" style={{width:`${m.progress||50}%`}}></div></div>
                       </div>
                     ))}
                     {team.length === 0 && <div style={{ textAlign: "center", padding: "16px 0", color: "var(--muted)", fontSize: "12px" }}>No team yet. <span style={{ color: "var(--accent)", cursor: "pointer" }} onClick={() => setShowTeam(true)}>Invite →</span></div>}
@@ -549,10 +548,10 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                               )}
                             </div>
                           </div>
-                          <div className="task-name" style={{ marginBottom: "4px" }}>{task.title}</div>
-                          <div className="task-client">📌 {task.client || "General"}</div>
-                          <div className="task-footer" style={{ marginTop: "8px" }}>
-                            <div className="task-due" style={{ color: status === "Done" ? "var(--accent3)" : "", fontSize: "11px" }}>{status === "Done" ? "✓ Done" : task.due_date || "—"}</div>
+                          <div className="task-name" style={{marginBottom:"4px"}}>{task.title}</div>
+                          <div className="task-client">📌 {task.client||"General"}</div>
+                          <div className="task-footer" style={{marginTop:"8px"}}>
+                            <div className="task-due" style={{color:status==="Done"?"var(--accent3)":"",fontSize:"11px"}}>{status==="Done"?"✓ Done":task.due_date||"—"}</div>
                             {/* Avatar stack for multiple assignees */}
                             <div style={{ display: "flex", alignItems: "center" }}>
                               {task.assignees ? [...new Set(task.assignees.split(",").map(s => s.trim()).filter(Boolean))].map((name, i) => {
@@ -627,8 +626,8 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                           <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--accent)" }}>{t.status}</span>
                         )}
                       </div>
-                      <div style={{ fontSize: "12px" }}>{t.due_date || "—"}</div>
-                      <div style={{ display: "flex", gap: "6px" }}>
+                      <div style={{fontSize:"12px"}}>{t.due_date||"—"}</div>
+                      <div style={{display:"flex",gap:"6px"}}>
                         {userRole === "admin" && (
                           <>
                             <button className="btn btn-ghost" style={{ fontSize: "11px", padding: "3px 8px" }} onClick={() => setEditTask({ ...t })}>Edit</button>
@@ -801,8 +800,8 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                         <div className="ms-label">In Progress</div>
                       </div>
                     </div>
-                    {m.workingOn && <div className="member-tasks" style={{ fontSize: "11px", marginBottom: "10px" }}>📌 {m.workingOn}</div>}
-                    {stats.assigned > 0 && (
+                    {m.working_on&&<div className="member-tasks" style={{fontSize:"11px",marginBottom:"10px"}}>📌 {m.working_on}</div>}
+                    {stats.assigned>0&&(
                       <div>
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: "var(--muted)", marginBottom: "4px" }}>
                           <span>Completion rate</span>
@@ -852,7 +851,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                     </div>
                     <div style={{ fontSize: "13px" }}>{c.package}</div>
                     <div><span className={`status-badge ${c.status === "Active" ? "status-active" : c.status === "Review" ? "status-review" : "status-paused"}`}><span className="status-dot"></span>{c.status}</span></div>
-                    <div style={{ fontFamily: "'Clash Display'", fontSize: "14px", fontWeight: "600" }}>₹{(c.monthly_value || 0).toLocaleString("en-IN")}</div>
+                    <div style={{ fontFamily: "'Clash Display'", fontSize: "14px", fontWeight: "600" }}>₹{(c.monthlyValue || 0).toLocaleString("en-IN")}</div>
                   </div>
                 ))}
                 {filteredClients.length === 0 && <div style={{ padding: "60px", textAlign: "center", color: "var(--muted)" }}>
@@ -885,7 +884,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                     <div className="invoice-row header"><div>ID</div><div>Client</div><div>Service</div><div>Amount</div><div>Status</div><div>Date</div></div>
                     {invoices.filter(i => i.type === "client").map(inv => (
                       <div className="invoice-row" key={inv.ID}>
-                        <div style={{ fontWeight: "600", fontSize: "12px" }}>{inv.invoice_id || `#INV-${inv.ID}`}</div>
+                        <div style={{ fontWeight: "600", fontSize: "12px" }}>{inv.invoiceId || `#INV-${inv.ID}`}</div>
                         <div style={{ fontSize: "12px" }}>{inv.client}</div>
                         <div style={{ fontSize: "12px" }}>{inv.service}</div>
                         <div style={{ fontFamily: "'Clash Display'", fontWeight: "600" }}>₹{(inv.amount || 0).toLocaleString("en-IN")}</div>
@@ -893,7 +892,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                           <span className={`status-badge ${inv.status === "Paid" ? "status-active" : inv.status === "Overdue" ? "status-review" : inv.status === "Declined" ? "status-review" : "status-paused"}`}>
                             <span className="status-dot"></span>{inv.status}
                           </span>
-                          {inv.status === "Declined" && <div style={{ fontSize: "10px", color: "var(--accent2)", marginTop: "4px" }}>Reason: {inv.decline_reason}</div>}
+                          {inv.status === "Declined" && <div style={{ fontSize: "10px", color: "var(--accent2)", marginTop: "4px" }}>Reason: {inv.declineReason}</div>}
                         </div>
                         <div style={{ fontSize: "11px", color: "var(--muted)" }}>{inv.date}</div>
                       </div>
@@ -910,7 +909,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                     <div className="invoice-row header" style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr 1fr 150px" }}><div>ID</div><div>Member</div><div>Service</div><div>Amount</div><div>Status</div><div>Date</div><div>Actions</div></div>
                     {invoices.filter(i => i.type === "payout").map(inv => (
                       <div className="invoice-row" key={inv.ID} style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr 1fr 150px" }}>
-                        <div style={{ fontWeight: "600", fontSize: "12px" }}>{inv.invoice_id}</div>
+                        <div style={{ fontWeight: "600", fontSize: "12px" }}>{inv.invoiceId}</div>
                         <div style={{ fontSize: "12px" }}>{inv.client}</div>
                         <div style={{ fontSize: "12px" }}>{inv.service}</div>
                         <div style={{ fontFamily: "'Clash Display'", fontWeight: "600" }}>₹{(inv.amount || 0).toLocaleString("en-IN")}</div>
@@ -918,7 +917,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                           <span className={`status-badge ${inv.status === "Paid" ? "status-active" : inv.status === "Declined" ? "status-review" : "status-paused"}`}>
                             <span className="status-dot"></span>{inv.status}
                           </span>
-                          {inv.status === "Declined" && <div style={{ fontSize: "10px", color: "var(--accent2)", marginTop: "4px" }}>Reason: {inv.decline_reason}</div>}
+                          {inv.status === "Declined" && <div style={{ fontSize: "10px", color: "var(--accent2)", marginTop: "4px" }}>Reason: {inv.declineReason}</div>}
                         </div>
                         <div style={{ fontSize: "11px", color: "var(--muted)" }}>{inv.date}</div>
                         <div style={{ display: "flex", gap: "8px" }}>
@@ -947,7 +946,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                       service: e.target.service.value,
                       amount: parseInt(e.target.amount.value),
                       date: new Date().toLocaleDateString(),
-                      invoice_id: `PAY-${Math.floor(1000 + Math.random() * 9000)}`
+                      invoiceId: `PAY-${Math.floor(1000 + Math.random() * 9000)}`
                     });
                     e.target.reset();
                   }}>
@@ -966,14 +965,14 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                     <div className="invoice-row header"><div>ID</div><div>Service</div><div>Amount</div><div>Status</div><div>Date</div></div>
                     {invoices.map(inv => (
                       <div className="invoice-row" key={inv.ID}>
-                        <div style={{ fontWeight: "600", fontSize: "12px" }}>{inv.invoice_id}</div>
+                        <div style={{ fontWeight: "600", fontSize: "12px" }}>{inv.invoiceId}</div>
                         <div style={{ fontSize: "12px" }}>{inv.service}</div>
                         <div style={{ fontFamily: "'Clash Display'", fontWeight: "600" }}>₹{(inv.amount || 0).toLocaleString("en-IN")}</div>
                         <div>
                           <span className={`status-badge ${inv.status === "Paid" ? "status-active" : inv.status === "Declined" ? "status-review" : "status-paused"}`}>
                             <span className="status-dot"></span>{inv.status}
                           </span>
-                          {inv.status === "Declined" && <div style={{ fontSize: "10px", color: "var(--accent2)", marginTop: "4px" }}>Reason: {inv.decline_reason}</div>}
+                          {inv.status === "Declined" && <div style={{ fontSize: "10px", color: "var(--accent2)", marginTop: "4px" }}>Reason: {inv.declineReason}</div>}
                         </div>
                         <div style={{ fontSize: "11px", color: "var(--muted)" }}>{inv.date}</div>
                       </div>
@@ -991,14 +990,14 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                   <div className="invoice-row header" style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr 1fr" }}><div>ID</div><div>Service</div><div>Amount</div><div>Status</div><div>Date</div><div>Actions</div></div>
                   {invoices.map(inv => (
                     <div className="invoice-row" key={inv.ID} style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr 1fr" }}>
-                      <div style={{ fontWeight: "600", fontSize: "12px" }}>{inv.invoice_id}</div>
+                      <div style={{ fontWeight: "600", fontSize: "12px" }}>{inv.invoiceId}</div>
                       <div style={{ fontSize: "12px" }}>{inv.service}</div>
                       <div style={{ fontFamily: "'Clash Display'", fontWeight: "600" }}>₹{(inv.amount || 0).toLocaleString("en-IN")}</div>
                       <div>
                         <span className={`status-badge ${inv.status === "Paid" ? "status-active" : inv.status === "Declined" ? "status-review" : "status-paused"}`}>
                           <span className="status-dot"></span>{inv.status}
                         </span>
-                        {inv.status === "Declined" && <div style={{ fontSize: "10px", color: "var(--accent2)", marginTop: "4px" }}>Reason: {inv.decline_reason}</div>}
+                        {inv.status === "Declined" && <div style={{ fontSize: "10px", color: "var(--accent2)", marginTop: "4px" }}>Reason: {inv.declineReason}</div>}
                       </div>
                       <div style={{ fontSize: "11px", color: "var(--muted)" }}>{inv.date}</div>
                       <div style={{ display: "flex", gap: "8px" }}>
@@ -1119,8 +1118,8 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                         {clientTasks.map(t => (
                           <div key={t.ID} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
                             <div>
-                              <div style={{ fontWeight: "600", fontSize: "12px" }}>{t.title}</div>
-                              <div style={{ fontSize: "10px", color: "var(--muted)" }}>{t.tag} &middot; Due {t.due_date || "—"}</div>
+                              <div style={{fontWeight:"600",fontSize:"12px"}}>{t.title}</div>
+                              <div style={{fontSize:"10px",color:"var(--muted)"}}>{t.tag} &middot; Due {t.dueDate||"—"}</div>
                             </div>
                             <span style={{
                               fontSize: "10px", padding: "2px 8px", borderRadius: "10px",
@@ -1142,7 +1141,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                         {clientInvs.map(i => (
                           <div key={i.ID} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
                             <div>
-                              <div style={{ fontWeight: "600", fontSize: "12px" }}>{i.invoice_id || `#INV-${i.ID}`}</div>
+                              <div style={{ fontWeight: "600", fontSize: "12px" }}>{i.invoiceId || `#INV-${i.ID}`}</div>
                               <div style={{ fontSize: "10px", color: "var(--muted)" }}>{i.service} &middot; {i.date}</div>
                             </div>
                             <div style={{ textAlign: "right" }}>
@@ -1220,16 +1219,16 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                 {STATUSES.map(s => <option key={s}>{s}</option>)}
               </select>
             </Field>
-            <Field label="Due Date"><input style={inputSt} type="date" value={editTask ? editTask.due_date : fTask.due_date} onChange={e => editTask ? setEditTask({ ...editTask, due_date: e.target.value }) : setFTask({ ...fTask, due_date: e.target.value })} /></Field>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+            <Field label="Due Date"><input style={inputSt} type="date" value={editTask?editTask.dueDate:fTask.dueDate} onChange={e=>editTask?setEditTask({...editTask,dueDate:e.target.value}):setFTask({...fTask,dueDate:e.target.value})} /></Field>
+            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px"}}>
               <Field label="Link to Board">
-                <select style={inputSt} value={editTask ? editTask.linked_board_id : fTask.linked_board_id} onChange={e => editTask ? setEditTask({ ...editTask, linked_board_id: e.target.value }) : setFTask({ ...fTask, linked_board_id: e.target.value })}>
+                <select style={inputSt} value={editTask ? editTask.linkedBoardId : fTask.linkedBoardId} onChange={e => editTask ? setEditTask({...editTask, linkedBoardId: e.target.value}) : setFTask({...fTask, linkedBoardId: e.target.value})}>
                   <option value="">None</option>
                   {boards.map(b => <option key={b.ID} value={b.ID}>{b.title || "Untitled Board"}</option>)}
                 </select>
               </Field>
               <Field label="Link to Document">
-                <select style={inputSt} value={editTask ? editTask.linked_doc_id : fTask.linked_doc_id} onChange={e => editTask ? setEditTask({ ...editTask, linked_doc_id: e.target.value }) : setFTask({ ...fTask, linked_doc_id: e.target.value })}>
+                <select style={inputSt} value={editTask ? editTask.linkedDocId : fTask.linkedDocId} onChange={e => editTask ? setEditTask({...editTask, linkedDocId: e.target.value}) : setFTask({...fTask, linkedDocId: e.target.value})}>
                   <option value="">None</option>
                   {documents.map(d => <option key={d.ID} value={d.ID}>{d.title || "Untitled Document"}</option>)}
                 </select>
@@ -1324,7 +1323,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
             <Field label="Industry"><input style={inputSt} placeholder="e.g. Food & Beverage" value={fClient.industry} onChange={e => setFClient({ ...fClient, industry: e.target.value })} /></Field>
             <Field label="Package"><select style={inputSt} value={fClient.package} onChange={e => setFClient({ ...fClient, package: e.target.value })}>{["Full Service", "Social + Content", "Social + Ads", "Performance Ads", "SEO Only", "Social + SEO"].map(p => <option key={p}>{p}</option>)}</select></Field>
             <Field label="Status"><select style={inputSt} value={fClient.status} onChange={e => setFClient({ ...fClient, status: e.target.value })}>{["Active", "Review", "Paused"].map(s => <option key={s}>{s}</option>)}</select></Field>
-            <Field label="Monthly Value (₹)"><input style={inputSt} type="number" placeholder="45000" value={fClient.monthly_value} onChange={e => setFClient({ ...fClient, monthly_value: e.target.value })} /></Field>
+            <Field label="Monthly Value (₹)"><input style={inputSt} type="number" placeholder="45000" value={fClient.monthlyValue} onChange={e => setFClient({ ...fClient, monthlyValue: e.target.value })} /></Field>
             <Field label="Color"><select style={inputSt} value={fClient.color} onChange={e => setFClient({ ...fClient, color: e.target.value })}>{["av-purple", "av-blue", "av-pink", "av-green", "av-orange"].map(c => <option key={c} value={c}>{c.replace("av-", "")}</option>)}</select></Field>
             <button type="submit" className="btn btn-primary" style={{ width: "100%", padding: "12px", marginTop: "4px", borderRadius: "8px" }}>Add Client</button>
           </form>
@@ -1337,20 +1336,20 @@ export default function CrmView({ currentPage, setCurrentPage }) {
             📧 Member will receive an invitation email from Reecho Media.
           </div>
           <form onSubmit={submitTeam}>
-            <Field label="Full Name"><input style={inputSt} placeholder="e.g. Zara Malik" value={fTeam.name} onChange={e => setFTeam({ ...fTeam, name: e.target.value })} required /></Field>
-            <Field label="Email"><input style={inputSt} type="email" placeholder="zara@agency.com" value={fTeam.email} onChange={e => setFTeam({ ...fTeam, email: e.target.value })} /></Field>
-            <Field label="Role"><input style={inputSt} placeholder="e.g. Content Strategist" value={fTeam.role} onChange={e => setFTeam({ ...fTeam, role: e.target.value })} required /></Field>
-            <Field label="Working on (projects)"><input style={inputSt} placeholder="e.g. FreshBite, Brand Strategy" value={fTeam.workingOn} onChange={e => setFTeam({ ...fTeam, workingOn: e.target.value })} /></Field>
-            <Field label="Color"><select style={inputSt} value={fTeam.color} onChange={e => setFTeam({ ...fTeam, color: e.target.value })}>{["av-purple", "av-blue", "av-pink", "av-green", "av-orange"].map(c => <option key={c} value={c}>{c.replace("av-", "")}</option>)}</select></Field>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+            <Field label="Full Name"><input style={inputSt} placeholder="e.g. Zara Malik" value={fTeam.name} onChange={e=>setFTeam({...fTeam,name:e.target.value})} required /></Field>
+            <Field label="Email"><input style={inputSt} type="email" placeholder="zara@agency.com" value={fTeam.email} onChange={e=>setFTeam({...fTeam,email:e.target.value})} /></Field>
+            <Field label="Role"><input style={inputSt} placeholder="e.g. Content Strategist" value={fTeam.role} onChange={e=>setFTeam({...fTeam,role:e.target.value})} required /></Field>
+            <Field label="Working on (projects)"><input style={inputSt} placeholder="e.g. FreshBite, Brand Strategy" value={fTeam.workingOn} onChange={e=>setFTeam({...fTeam,workingOn:e.target.value})} /></Field>
+            <Field label="Color"><select style={inputSt} value={fTeam.color} onChange={e=>setFTeam({...fTeam,color:e.target.value})}>{["av-purple","av-blue","av-pink","av-green","av-orange"].map(c=><option key={c} value={c}>{c.replace("av-","")}</option>)}</select></Field>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px"}}>
               <Field label="Projects">
-                <input style={inputSt} type="number" min="0" placeholder="0" value={fTeam.tasksNum} onChange={e => setFTeam({ ...fTeam, tasksNum: e.target.value })} />
+                <input style={inputSt} type="number" min="0" placeholder="0" value={fTeam.tasksNum} onChange={e=>setFTeam({...fTeam,tasksNum:e.target.value})} />
               </Field>
               <Field label="Completed">
-                <input style={inputSt} type="number" min="0" placeholder="0" value={fTeam.tasksDone} onChange={e => setFTeam({ ...fTeam, tasksDone: e.target.value })} />
+                <input style={inputSt} type="number" min="0" placeholder="0" value={fTeam.tasksDone} onChange={e=>setFTeam({...fTeam,tasksDone:e.target.value})} />
               </Field>
               <Field label="Clients">
-                <input style={inputSt} type="number" min="0" placeholder="0" value={fTeam.clientsNum} onChange={e => setFTeam({ ...fTeam, clientsNum: e.target.value })} />
+                <input style={inputSt} type="number" min="0" placeholder="0" value={fTeam.clientsNum} onChange={e=>setFTeam({...fTeam,clientsNum:e.target.value})} />
               </Field>
             </div>
             <button type="submit" className="btn btn-primary" style={{ width: "100%", padding: "12px", marginTop: "4px", borderRadius: "8px" }}>Invite Member</button>
@@ -1373,7 +1372,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
       {showInv && (
         <Modal title="Create Invoice" onClose={() => setShowInv(false)}>
           <form onSubmit={submitInv}>
-            <Field label="Invoice ID"><input style={inputSt} placeholder="INV-0042" value={fInv.invoice_id} onChange={e => setFInv({ ...fInv, invoice_id: e.target.value })} /></Field>
+            <Field label="Invoice ID"><input style={inputSt} placeholder="INV-0042" value={fInv.invoiceId} onChange={e => setFInv({ ...fInv, invoiceId: e.target.value })} /></Field>
             <Field label="Client"><select style={inputSt} value={fInv.client} onChange={e => setFInv({ ...fInv, client: e.target.value })} required><option value="">Select client</option>{clients.map(c => <option key={c.ID} value={c.name}>{c.name}</option>)}</select></Field>
             <Field label="Service"><input style={inputSt} placeholder="Social Media Management — April" value={fInv.service} onChange={e => setFInv({ ...fInv, service: e.target.value })} /></Field>
             <Field label="Amount (₹)"><input style={inputSt} type="number" placeholder="45000" value={fInv.amount} onChange={e => setFInv({ ...fInv, amount: e.target.value })} required /></Field>
@@ -1388,10 +1387,10 @@ export default function CrmView({ currentPage, setCurrentPage }) {
       {editMember && (
         <Modal title="Edit Team Member" onClose={() => setEditMember(null)}>
           <form onSubmit={submitEditMember}>
-            <Field label="Full Name"><input style={inputSt} value={editMember.name} onChange={e => setEditMember({ ...editMember, name: e.target.value })} required /></Field>
-            <Field label="Email"><input style={inputSt} type="email" value={editMember.email || ""} onChange={e => setEditMember({ ...editMember, email: e.target.value })} /></Field>
-            <Field label="Role"><input style={inputSt} value={editMember.role} onChange={e => setEditMember({ ...editMember, role: e.target.value })} required /></Field>
-            <Field label="Working on (projects)"><input style={inputSt} value={editMember.workingOn || ""} placeholder="e.g. FreshBite, Brand Strategy" onChange={e => setEditMember({ ...editMember, workingOn: e.target.value })} /></Field>
+            <Field label="Full Name"><input style={inputSt} value={editMember.name} onChange={e=>setEditMember({...editMember,name:e.target.value})} required /></Field>
+            <Field label="Email"><input style={inputSt} type="email" value={editMember.email||""} onChange={e=>setEditMember({...editMember,email:e.target.value})} /></Field>
+            <Field label="Role"><input style={inputSt} value={editMember.role} onChange={e=>setEditMember({...editMember,role:e.target.value})} required /></Field>
+            <Field label="Working on (projects)"><input style={inputSt} value={editMember.working_on||""} placeholder="e.g. FreshBite, Brand Strategy" onChange={e=>setEditMember({...editMember,working_on:e.target.value})} /></Field>
             <Field label="Color">
               <select style={inputSt} value={editMember.color || "av-blue"} onChange={e => setEditMember({ ...editMember, color: e.target.value })}>
                 {["av-purple", "av-blue", "av-pink", "av-green", "av-orange"].map(c => <option key={c} value={c}>{c.replace("av-", "")}</option>)}
@@ -1399,7 +1398,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
             </Field>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
               <Field label="Clients served">
-                <input style={inputSt} type="number" min="0" value={editMember.clientsNum || 0} onChange={e => setEditMember({ ...editMember, clientsNum: parseInt(e.target.value) || 0 })} />
+                <input style={inputSt} type="number" min="0" value={editMember.clients_num||0} onChange={e=>setEditMember({...editMember,clients_num:parseInt(e.target.value)||0})} />
               </Field>
               <Field label="Reset Password (Optional)">
                 <input style={inputSt} type="password" placeholder="New password" onChange={e => setEditMember({ ...editMember, password: e.target.value })} />
@@ -1456,7 +1455,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
           </div>
           <form onSubmit={(e) => {
             e.preventDefault();
-            updateInvoice(declineModal.id, { status: "Declined", decline_reason: e.target.reason.value });
+            updateInvoice(declineModal.id, { status: "Declined", declineReason: e.target.reason.value });
             setDeclineModal(null);
           }}>
             <Field label="Reason for Declining">
