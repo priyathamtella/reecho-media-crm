@@ -203,7 +203,7 @@ const Board = () => {
     const token = localStorage.getItem("token");
     setSaveStatus("saving");
     try {
-      await axios.post(`http://localhost:5050/api/boards/${id}/sync`,
+      await axios.post(`https://api.reechomedia.com/api/boards/${id}/sync`,
         { 
           title: boardTitle, 
           fullState: JSON.stringify({ items: itemsRef.current }),
@@ -228,7 +228,7 @@ const Board = () => {
         const headers = { Authorization: `Bearer ${token}` };
         
         // Fetch Board
-        const res = await axios.get(`http://localhost:5050/api/boards/${id}?t=${Date.now()}`, { headers });
+        const res = await axios.get(`https://api.reechomedia.comapi/boards/${id}?t=${Date.now()}`, { headers });
         const bData = res.data.board || res.data; // fallback for safety
         setBoardData(bData);
         setBoardTitle(bData.title || "Untitled Board");
@@ -251,8 +251,8 @@ const Board = () => {
         // Fetch Tasks & Docs (only for editors/admins/members)
         if (role === "admin" || role === "member") {
           const [tasksRes, docsRes] = await Promise.all([
-            axios.get(`http://localhost:5050/api/tasks`, { headers }),
-            axios.get(`http://localhost:5050/api/docs`, { headers })
+            axios.get(`https://api.reechomedia.com/api/tasks`, { headers }),
+            axios.get(`https://api.reechomedia.com/api/docs`, { headers })
           ]);
           setTasks(tasksRes.data || []);
           setDocuments(docsRes.data || []);
@@ -267,7 +267,7 @@ const Board = () => {
   const handleLinkTask = async (taskId) => {
     const token = localStorage.getItem("token");
     try {
-      await axios.post(`http://localhost:5050/api/boards/${id}/sync`, 
+      await axios.post(`https://api.reechomedia.com/api/boards/${id}/sync`, 
         { title: boardTitle, linkedTaskId: parseInt(taskId) || 0 },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -279,7 +279,7 @@ const Board = () => {
   const handleLinkDoc = async (docId) => {
     const token = localStorage.getItem("token");
     try {
-      await axios.post(`http://localhost:5050/api/boards/${id}/sync`, 
+      await axios.post(`https://api.reechomedia.com/api/boards/${id}/sync`, 
         { title: boardTitle, linkedDocId: docId || "" },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -292,7 +292,7 @@ const Board = () => {
     if (!window.confirm("Delete this board? This cannot be undone.")) return;
     const token = localStorage.getItem("token");
     try {
-      await axios.delete(`http://localhost:5050/api/boards/${id}`, {
+      await axios.delete(`https://api.reechomedia.com/api/boards/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       navigate("/dashboard");
@@ -303,7 +303,7 @@ const Board = () => {
     setSubmittingReview(true);
     const token = localStorage.getItem("token");
     try {
-      await axios.post(`http://localhost:5050/api/boards/${id}/submit-review`, {}, {
+      await axios.post(`https://api.reechomedia.com/api/boards/${id}/submit-review`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setReviewSent(true);
@@ -314,7 +314,7 @@ const Board = () => {
   const handleApprove = async () => {
     const token = localStorage.getItem("token");
     try {
-      await axios.post(`http://localhost:5050/api/boards/${id}/approve`, {}, {
+      await axios.post(`https://api.reechomedia.com/api/boards/${id}/approve`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setBoardData(prev => ({ ...prev, ReviewStatus: "approved" }));
@@ -326,7 +326,7 @@ const Board = () => {
     const token = localStorage.getItem("token");
     setSaveStatus("saving");
     try {
-      await axios.post(`http://localhost:5050/api/boards/${id}/sync`, {
+      await axios.post(`https://api.reechomedia.com/api/boards/${id}/sync`, {
         title: boardTitle,
         clientStatus: status,
         clientFeedback: reason
