@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 
-const API = "http://localhost:5050/api";
+const API = "https://api.reechomedia.com/api";
 
 const PLATFORM_COLORS = {
   instagram: "#a78bfa", facebook: "#67b7e8",
