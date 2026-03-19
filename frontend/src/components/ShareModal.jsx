@@ -3,7 +3,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import { Users, X, Check, Share2, Loader2 } from "lucide-react";
 
-const API = "https://reechomedia.com/api";
+
+const API = "https://api.reechomedia.com/api";
+
 
 /**
  * ShareModal — used by admin to share a Board or Document with team members.

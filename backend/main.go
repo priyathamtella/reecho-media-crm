@@ -15,9 +15,9 @@ import (
 func main() {
 	app := fiber.New()
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*", // Allow all origins for development
-		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
-		AllowMethods: "GET, POST, PUT, DELETE",
+	    AllowOrigins: "https://reechomedia.com,https://www.reechomedia.com",
+	    AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+	    AllowMethods: "GET, POST, PUT, DELETE",
 	}))
 	database.DBconnect()
 	err := godotenv.Load()

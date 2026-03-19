@@ -7,7 +7,9 @@ import {
     Loader2, FolderOpen, X, Trash2, FileText
 } from "lucide-react";
 
-const API = "https://reechomedia.com/api";
+
+const API = "https://api.reechomedia.com/api";
+
 
 const AppLayout = ({ children }) => {
     const navigate = useNavigate();

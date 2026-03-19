@@ -47,22 +47,17 @@ func DBconnect() {
 	adminPassword := "reechomedia"
 	var admin models.User
 	if err := DB.Where("email = ?", adminEmail).First(&admin).Error; err != nil {
-		// Not found, create it
-		hashed, _ := bcrypt.GenerateFromPassword([]byte(adminPassword), 10)
-		admin = models.User{
-			Name:     "Admin",
-			Email:    adminEmail,
-			Password: string(hashed),
-			Role:     "admin",
-		}
-		DB.Create(&admin)
-		fmt.Println("Default admin created.")
-	} else {
-		// Found, just ensure password is reechomedia for now if desired, 
-		// but usually we just want to make sure the user exists.
-		// User specifically asked to "keep admin email... and password... and make sure they work"
-		hashed, _ := bcrypt.GenerateFromPassword([]byte(adminPassword), 10)
-		DB.Model(&admin).Update("password", string(hashed))
-		fmt.Println("Admin credentials synced.")
-	}
+    // Not found, create it
+    hashed, _ := bcrypt.GenerateFromPassword([]byte(adminPassword), 10)
+    admin = models.User{
+        Name:     "Admin",
+        Email:    adminEmail,
+        Password: string(hashed),
+        Role:     "admin",
+    }
+    DB.Create(&admin)
+    fmt.Println("Default admin created.")
+} else {
+    fmt.Println("Admin already exists.")
+}
 }

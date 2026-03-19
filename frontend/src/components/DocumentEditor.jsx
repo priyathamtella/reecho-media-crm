@@ -10,7 +10,9 @@ import {
 } from "lucide-react";
 import ShareModal from "./ShareModal";
 
-const API = "https://reechomedia.com/api";
+
+const API = "https://api.reechomedia.com/api";
+
 
 const DocumentEditor = () => {
     const { id } = useParams();
