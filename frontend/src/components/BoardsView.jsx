@@ -11,7 +11,7 @@ import ShareModal from "./ShareModal";
 // Helper: normalize board/doc ID from GORM response (may be ID or id)
 const getId = (item) => item?.id || item?.ID || "";
 
-const API = "http://localhost:5050/api";
+const API = "https://api.reechomedia.com/api";
 
 // ─── Pre-built template boards with DEMO content ─────────────────────────────
 const TEMPLATES = [
