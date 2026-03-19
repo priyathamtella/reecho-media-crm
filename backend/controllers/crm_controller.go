@@ -44,22 +44,21 @@ func sendEmail(toEmail, subject, body string) {
 	}
 }
 
-// sendInviteEmail sends a team member invitation email
 func sendInviteEmail(toEmail, toName, role, password string) {
-	subject := "You've been invited to join Reecho Media CRM"
-	body := fmt.Sprintf(`Hi %s,
+    subject := "You've been invited to join Reecho Media CRM"
+    body := fmt.Sprintf(`Hi %s,
 
 You have been invited to join the Reecho Media team as a %s.
 
 You can now log in to the portal.
 Email: %s
 Password: %s
-Login Portal: http://localhost:5173/login
+Login Portal: https://reechomedia.com/login
 
 Welcome aboard!
 
 — Reecho Media Team`, toName, role, toEmail, password)
-	sendEmail(toEmail, subject, body)
+    sendEmail(toEmail, subject, body)
 }
 
 // sendClientWelcomeEmail sends a congratulations email to a new client
@@ -72,7 +71,7 @@ Congratulations — you are now officially teamed up with Reecho Media!
 We've set up a dedicated Client Hub for you to track progress.
 Email: %s
 Password: %s
-Login Portal: http://localhost:5173/login
+Login Portal: https://reechomedia.com/login
 
 Your package: %s
 
