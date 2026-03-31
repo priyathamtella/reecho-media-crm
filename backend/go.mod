@@ -11,6 +11,8 @@ require (
 	gorm.io/gorm v1.31.1
 )
 
+require github.com/stripe/stripe-go/v78 v78.12.0 // indirect
+
 require (
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect

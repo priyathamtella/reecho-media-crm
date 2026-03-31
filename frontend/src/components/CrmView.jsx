@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import PaymentForm from "./PaymentForm";
 
 
 const API = "https://api.reechomedia.com/api";
@@ -1472,64 +1473,20 @@ export default function CrmView({ currentPage, setCurrentPage }) {
       {payModal && (
         <Modal title="Secure Payment Gateway" onClose={() => setPayModal(null)} width="400px">
           {payModal.step === 'init' ? (
-            <div style={{ padding: "10px 5px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "15px", marginBottom: "24px", padding: "16px", background: "rgba(108,99,255,0.05)", borderRadius: "12px", border: "1px solid rgba(108,99,255,0.1)" }}>
-                <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", color: "white" }}>⚡</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "1px" }}>Total Payable</div>
-                  <div style={{ fontSize: "24px", fontWeight: "700", fontFamily: "'Clash Display'" }}>₹{payModal.amount.toLocaleString("en-IN")}</div>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: "24px", textAlign: "center" }}>
-                <div style={{ fontSize: "12px", fontWeight: "600", color: "var(--muted)", marginBottom: "16px" }}>SCAN QR TO PAY</div>
-                <div style={{ background: "white", padding: "12px", borderRadius: "12px", marginBottom: "16px", display: "inline-block", border: "1px solid var(--border)" }}>
-                  <img src="https://res.cloudinary.com/deukqrxtt/image/upload/v1773394955/WhatsApp_Image_2026-03-13_at_3.03.41_PM_rixo3n.jpg"
-                    alt="Payment QR Code"
-                    style={{ width: "220px", height: "auto", borderRadius: "8px", display: "block" }} />
-                </div>
-                <div style={{ fontSize: "11px", color: "var(--muted)", padding: "10px", border: "1px dashed var(--border)", borderRadius: "8px" }}>
-                  UPI ID: <strong style={{ color: "var(--text)" }}>priyathamtella@okhdfcbank</strong>
-                </div>
-              </div>
-
-              <button className="btn btn-primary" style={{ width: "100%", padding: "14px", borderRadius: "10px", fontWeight: "700", boxShadow: "0 4px 15px rgba(108,99,255,0.3)" }} onClick={() => {
-                setPayModal({ ...payModal, step: 'processing' });
-                setPayTimer(600);
-              }}>
-                I have Scanned & Paid
-              </button>
-            </div>
-          ) : payModal.step === 'processing' ? (
-            <div style={{ textAlign: "center", padding: "40px 10px" }}>
-              <div style={{ position: "relative", width: "80px", height: "80px", margin: "0 auto 30px" }}>
-                <div className="spinner" style={{ position: "absolute", inset: 0, border: "3px solid rgba(108,99,255,0.1)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 1s linear infinite" }}></div>
-                <div style={{ position: "absolute", inset: "10px", background: "var(--bg)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px" }}>💳</div>
-              </div>
-
-              <div style={{ fontSize: "18px", fontWeight: "700", marginBottom: "10px" }}>Confirming Transaction</div>
-              <p style={{ fontSize: "13px", color: "var(--muted)", marginBottom: "24px", padding: "0 20px" }}>We are verifying the payment with the bank. This usually takes a few minutes.</p>
-
-              <div style={{ display: "inline-flex", alignItems: "center", gap: "10px", padding: "8px 20px", background: "rgba(247,151,30,0.1)", borderRadius: "30px", marginBottom: "30px" }}>
-                <span className="status-dot" style={{ background: "var(--accent4)", animation: "pulse 1.5s infinite" }}></span>
-                <span style={{ fontSize: "17px", fontWeight: "700", color: "var(--accent4)", fontFamily: "'JetBrains Mono', monospace" }}>
-                  {Math.floor(payTimer / 60)}:{String(payTimer % 60).padStart(2, '0')}
-                </span>
-              </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                <button className="btn btn-ghost" style={{ width: "100%", fontSize: "12px" }} onClick={() => {
-                  setPayModal({ ...payModal, step: 'success' });
-                  updateInvoice(payModal.id, { status: "Paid" });
-                }}>Complete Verification Now</button>
-                <button className="btn btn-ghost" style={{ width: "100%", fontSize: "11px", border: "none", color: "var(--muted)" }} onClick={() => setPayModal(null)}>Cancel Verification</button>
-              </div>
-            </div>
+            <PaymentForm 
+              amount={payModal.amount} 
+              invoiceId={payModal.id}
+              onSuccess={() => {
+                setPayModal({ ...payModal, step: 'success' });
+                updateInvoice(payModal.id, { status: "Paid" });
+              }} 
+              onCancel={() => setPayModal(null)} 
+            />
           ) : (
             <div style={{ textAlign: "center", padding: "40px 10px" }}>
               <div style={{ width: "80px", height: "80px", background: "rgba(67,233,123,0.1)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", fontSize: "40px" }}>✅</div>
               <div style={{ fontSize: "22px", fontWeight: "700", color: "var(--accent3)", marginBottom: "12px" }}>Payment Received!</div>
-              <p style={{ fontSize: "14px", color: "var(--muted)", marginBottom: "32px" }}>The transaction was successful. Your invoice has been marked as <strong>Paid</strong>.</p>
+              <p style={{ fontSize: "14px", color: "var(--muted)", marginBottom: "32px" }}>The transaction was successful via Stripe. Your invoice has been marked as <strong>Paid</strong>.</p>
               <button className="btn btn-primary" style={{ width: "100%", padding: "14px", borderRadius: "10px" }} onClick={() => setPayModal(null)}>Back to Dashboard</button>
             </div>
           )}
