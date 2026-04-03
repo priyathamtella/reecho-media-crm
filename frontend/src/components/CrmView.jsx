@@ -3,6 +3,7 @@ import axios from "axios";
 
 const API = "https://api.reechomedia.com/api";
 
+
 const PLATFORM_COLORS = {
   instagram: "#a78bfa", facebook: "#67b7e8",
   linkedin: "#f59e0b", twitter: "#43e97b",
@@ -1479,101 +1480,55 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                 </div>
               </div>
 
-              {/* Razorpay branding */}
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "20px", padding: "12px 16px", background: "rgba(53,202,100,0.06)", borderRadius: "10px", border: "1px solid rgba(53,202,100,0.15)" }}>
-                <div style={{ fontSize: "22px" }}>🔒</div>
-                <div>
-                  <div style={{ fontSize: "12px", fontWeight: "700" }}>Secured by Razorpay</div>
-                  <div style={{ fontSize: "11px", color: "var(--muted)" }}>UPI · Cards · Net Banking · Wallets</div>
+              <div style={{ marginBottom: "24px", textAlign: "center" }}>
+                <div style={{ fontSize: "12px", fontWeight: "600", color: "var(--muted)", marginBottom: "16px" }}>SCAN QR TO PAY</div>
+                <div style={{ background: "white", padding: "12px", borderRadius: "12px", marginBottom: "16px", display: "inline-block", border: "1px solid var(--border)" }}>
+                  <img src="https://res.cloudinary.com/deukqrxtt/image/upload/v1773394955/WhatsApp_Image_2026-03-13_at_3.03.41_PM_rixo3n.jpg"
+                    alt="Payment QR Code"
+                    style={{ width: "220px", height: "auto", borderRadius: "8px", display: "block" }} />
+                </div>
+                <div style={{ fontSize: "11px", color: "var(--muted)", padding: "10px", border: "1px dashed var(--border)", borderRadius: "8px" }}>
+                  UPI ID: <strong style={{ color: "var(--text)" }}>priyathamtella@okhdfcbank</strong>
                 </div>
               </div>
 
-              <button
-                id="razorpay-pay-btn"
-                className="btn btn-primary"
-                style={{ width: "100%", padding: "14px", borderRadius: "10px", fontWeight: "700", boxShadow: "0 4px 15px rgba(108,99,255,0.3)", fontSize: "15px" }}
-                onClick={async () => {
-                  try {
-                    // Step 1: Create Razorpay order on backend
-                    const res = await axios.post(
-                      `${API}/payment/create-order`,
-                      { invoice_id: payModal.id, amount: payModal.amount },
-                      auth()
-                    );
-                    const { order_id, amount, currency, razorpay_key } = res.data;
-
-                    // Step 2: Load Razorpay Checkout (if not already loaded)
-                    if (!window.Razorpay) {
-                      await new Promise((resolve, reject) => {
-                        const script = document.createElement("script");
-                        script.src = "https://checkout.razorpay.com/v1/checkout.js";
-                        script.onload = resolve;
-                        script.onerror = reject;
-                        document.body.appendChild(script);
-                      });
-                    }
-
-                    // Step 3: Open Razorpay Checkout popup
-                    const rzp = new window.Razorpay({
-                      key: razorpay_key,
-                      amount: amount,          // in paise
-                      currency: currency,
-                      order_id: order_id,
-                      name: "Reecho Media",
-                      description: `Invoice Payment #${payModal.id}`,
-                      image: "https://reechomedia.com/favicon.ico",
-                      prefill: {
-                        name: "",
-                        email: "",
-                        contact: "",
-                      },
-                      theme: { color: "#6C63FF" },
-                      handler: async function (response) {
-                        // Step 4: Verify payment on backend
-                        try {
-                          await axios.post(
-                            `${API}/payment/verify`,
-                            {
-                              razorpay_order_id: response.razorpay_order_id,
-                              razorpay_payment_id: response.razorpay_payment_id,
-                              razorpay_signature: response.razorpay_signature,
-                              invoice_id: payModal.id,
-                            },
-                            auth()
-                          );
-                          setPayModal({ ...payModal, step: 'success' });
-                          fetchAll(); // Refresh invoice list
-                        } catch (err) {
-                          console.error("Payment verification failed:", err);
-                          alert("⚠️ Payment was received but verification failed. Please contact support.");
-                        }
-                      },
-                      modal: {
-                        ondismiss: function () {
-                          // User closed the Razorpay modal without paying
-                          console.log("Razorpay checkout dismissed");
-                        }
-                      }
-                    });
-                    rzp.open();
-                  } catch (err) {
-                    console.error("Razorpay order creation failed:", err);
-                    alert("⚠️ Could not initialise payment. Please try again.");
-                  }
-                }}
-              >
-                💳 Pay with Razorpay
+              <button className="btn btn-primary" style={{ width: "100%", padding: "14px", borderRadius: "10px", fontWeight: "700", boxShadow: "0 4px 15px rgba(108,99,255,0.3)" }} onClick={() => {
+                setPayModal({ ...payModal, step: 'processing' });
+                setPayTimer(600);
+              }}>
+                I have Scanned & Paid
               </button>
+            </div>
+          ) : payModal.step === 'processing' ? (
+            <div style={{ textAlign: "center", padding: "40px 10px" }}>
+              <div style={{ position: "relative", width: "80px", height: "80px", margin: "0 auto 30px" }}>
+                <div className="spinner" style={{ position: "absolute", inset: 0, border: "3px solid rgba(108,99,255,0.1)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 1s linear infinite" }}></div>
+                <div style={{ position: "absolute", inset: "10px", background: "var(--bg)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px" }}>💳</div>
+              </div>
 
-              <p style={{ textAlign: "center", fontSize: "11px", color: "var(--muted)", marginTop: "14px" }}>
-                Clicking the button opens a secure Razorpay popup. All major UPI, card &amp; net banking methods are supported.
-              </p>
+              <div style={{ fontSize: "18px", fontWeight: "700", marginBottom: "10px" }}>Confirming Transaction</div>
+              <p style={{ fontSize: "13px", color: "var(--muted)", marginBottom: "24px", padding: "0 20px" }}>We are verifying the payment with the bank. This usually takes a few minutes.</p>
+
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "10px", padding: "8px 20px", background: "rgba(247,151,30,0.1)", borderRadius: "30px", marginBottom: "30px" }}>
+                <span className="status-dot" style={{ background: "var(--accent4)", animation: "pulse 1.5s infinite" }}></span>
+                <span style={{ fontSize: "17px", fontWeight: "700", color: "var(--accent4)", fontFamily: "'JetBrains Mono', monospace" }}>
+                  {Math.floor(payTimer / 60)}:{String(payTimer % 60).padStart(2, '0')}
+                </span>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <button className="btn btn-ghost" style={{ width: "100%", fontSize: "12px" }} onClick={() => {
+                  setPayModal({ ...payModal, step: 'success' });
+                  updateInvoice(payModal.id, { status: "Paid" });
+                }}>Complete Verification Now</button>
+                <button className="btn btn-ghost" style={{ width: "100%", fontSize: "11px", border: "none", color: "var(--muted)" }} onClick={() => setPayModal(null)}>Cancel Verification</button>
+              </div>
             </div>
           ) : (
             <div style={{ textAlign: "center", padding: "40px 10px" }}>
               <div style={{ width: "80px", height: "80px", background: "rgba(67,233,123,0.1)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", fontSize: "40px" }}>✅</div>
-              <div style={{ fontSize: "22px", fontWeight: "700", color: "var(--accent3)", marginBottom: "12px" }}>Payment Successful!</div>
-              <p style={{ fontSize: "14px", color: "var(--muted)", marginBottom: "32px" }}>The transaction was verified by Razorpay. Your invoice has been marked as <strong>Paid</strong>.</p>
+              <div style={{ fontSize: "22px", fontWeight: "700", color: "var(--accent3)", marginBottom: "12px" }}>Payment Received!</div>
+              <p style={{ fontSize: "14px", color: "var(--muted)", marginBottom: "32px" }}>The transaction was successful. Your invoice has been marked as <strong>Paid</strong>.</p>
               <button className="btn btn-primary" style={{ width: "100%", padding: "14px", borderRadius: "10px" }} onClick={() => setPayModal(null)}>Back to Dashboard</button>
             </div>
           )}

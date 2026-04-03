@@ -13,9 +13,15 @@ func SetupRoutes(app *fiber.App) {
 	app.Post("/login", controllers.Login)
 	app.Post("/contact", controllers.ContactUs)
 
+	// Stripe Webhook (Unprotected)
+	app.Post("/webhook/stripe", controllers.HandleStripeWebhook)
+
 	// Protected routes (Requires JWT)
 	api := app.Group("/api", auth.AuthRequired)
 	api.Post("/change-password", controllers.ChangePassword)
+
+	// Payment Endpoints
+	api.Post("/create-payment-intent", controllers.HandleCreatePaymentIntent)
 
 	// Board Endpoints
 	api.Get("/boards", controllers.GetAllBoards)        // See all boards
