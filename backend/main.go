@@ -14,7 +14,6 @@ import (
 
 func main() {
 	// ── 1. Load .env FIRST — before anything reads os.Getenv ──────────────
-	// On Render this file won't exist; env vars come from the dashboard.
 	if err := godotenv.Load(); err != nil {
 		log.Println("[env] .env not found — using system environment variables")
 	}
@@ -36,24 +35,40 @@ func main() {
 	// ── 5. Fiber ───────────────────────────────────────────────────────────
 	app := fiber.New(fiber.Config{
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
-			log.Printf("[ERROR] %s %s → %v", c.Method(), c.Path(), err)
+			log.Printf("[ERROR] %s %s — %v", c.Method(), c.Path(), err)
 			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 		},
 	})
 
-	// ── 6. CORS ────────────────────────────────────────────────────────────
+	// ── 6. CORS — must come BEFORE any other middleware ───────────────────
+	// This handles ALL methods including OPTIONS preflight requests.
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "https://reechomedia.com,https://www.reechomedia.com,http://localhost:5173,http://localhost:3000",
-		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
-		AllowMethods: "GET, POST, PUT, DELETE",
+		AllowOriginsFunc: func(origin string) bool {
+			allowed := map[string]bool{
+				"https://reechomedia.com":       true,
+				"https://www.reechomedia.com":   true,
+				"http://localhost:5173":          true,
+				"http://localhost:3000":          true,
+			}
+			return allowed[origin]
+		},
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS",
+		AllowCredentials: false,
+		MaxAge:           86400, // Cache preflight for 24h
 	}))
 
-	// ── 7. HTTP logger → visible in Render logs ────────────────────────────
+	// ── 7. Handle OPTIONS preflight explicitly for all routes ─────────────
+	app.Options("/*", func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+
+	// ── 8. HTTP logger ────────────────────────────────────────────────────
 	app.Use(logger.New(logger.Config{
 		Format: "[${time}] ${status} ${method} ${path} — ${latency}\n",
 	}))
 
-	// ── 8. Routes ──────────────────────────────────────────────────────────
+	// ── 9. Routes ──────────────────────────────────────────────────────────
 	routes.SetupRoutes(app)
 
 	log.Printf("[server] Listening on :%s", port)
