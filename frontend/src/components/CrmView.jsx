@@ -76,11 +76,11 @@ export default function CrmView({ currentPage, setCurrentPage }) {
   // Client page filter
   const [clientFilter, setClientFilter] = useState("All");
 
-  const [fTask,   setFTask]   = useState({ title:"", tag:"Content", client:"", due_date:"", assignees:"", status:"To Do", linked_board_id: "", linked_doc_id: "" });
-  const [fClient, setFClient] = useState({ name:"", email:"", industry:"", package:"Full Service", status:"Active", monthly_value:"", initials:"", color:"av-purple" });
-  const [fTeam,   setFTeam]   = useState({ name:"", email:"", role:"", initials:"", color:"av-blue", working_on:"", tasks_num:"0", tasks_done:"0", clients_num:"0" });
+  const [fTask,   setFTask]   = useState({ title:"", tag:"Content", client:"", dueDate:"", assignees:"", status:"To Do", linkedBoardId:"", linkedDocId:"" });
+  const [fClient, setFClient] = useState({ name:"", email:"", industry:"", package:"Full Service", status:"Active", monthlyValue:0, initials:"", color:"av-purple" });
+  const [fTeam,   setFTeam]   = useState({ name:"", email:"", role:"", initials:"", color:"av-blue", workingOn:"", tasksNum:0, tasksDone:0, clientsNum:0 });
   const [fCal,    setFCal]    = useState({ title:"", client:"", platform:"instagram", date:"" });
-  const [fInv,    setFInv]    = useState({ invoice_id:"", client:"", service:"", amount:"", date:"", status:"Pending" });
+  const [fInv,    setFInv]    = useState({ invoiceId:"", client:"", service:"", amount:"", date:"", status:"Pending" });
   
   // Change Password state
   const [showPassModal, setShowPassModal] = useState(false);
@@ -284,7 +284,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
   const submitTask = async (e) => {
     e.preventDefault();
     await createTask(fTask);
-    setFTask({ title:"", tag:"Content", client:"", dueDate:"", assignees:"", status:"To Do" });
+    setFTask({ title:"", tag:"Content", client:"", dueDate:"", assignees:"", status:"To Do", linkedBoardId:"", linkedDocId:"" });
     setShowTask(false);
   };
   const submitEditTask = async (e) => {
@@ -302,19 +302,19 @@ export default function CrmView({ currentPage, setCurrentPage }) {
   const submitTeam = async (e) => {
     e.preventDefault();
     const p = { ...fTeam,
-      tasks_num: parseInt(fTeam.tasks_num)||0,
-      tasks_done: parseInt(fTeam.tasks_done)||0,
-      clients_num: parseInt(fTeam.clients_num)||0,
+      tasksNum:   parseInt(fTeam.tasksNum)||0,
+      tasksDone:  parseInt(fTeam.tasksDone)||0,
+      clientsNum: parseInt(fTeam.clientsNum)||0,
       initials: fTeam.initials||fTeam.name.substring(0,2).toUpperCase()
     };
     await axios.post(`${API}/team`, p, auth());
-    setFTeam({ name:"", email:"", role:"", initials:"", color:"av-blue", working_on:"", tasks_num:"0", tasks_done:"0", clients_num:"0" });
+    setFTeam({ name:"", email:"", role:"", initials:"", color:"av-blue", workingOn:"", tasksNum:0, tasksDone:0, clientsNum:0 });
     setShowTeam(false); fetchAll();
   };
   const submitEditMember = async (e) => {
     e.preventDefault();
     try {
-      await axios.put(`${API}/team/${editMember.ID}`, editMember, auth());
+      await axios.put(`${API}/team/${editMember.id || editMember.ID}`, editMember, auth());
       await fetchAll();
       setEditMember(null);
     } catch (err) { console.error(err); }
@@ -339,7 +339,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
   const submitInv = async (e) => {
     e.preventDefault();
     await axios.post(`${API}/invoices`, { ...fInv, amount:parseInt(fInv.amount)||0 }, auth());
-    setFInv({ invoice_id:"", client:"", service:"", amount:"", date:"", status:"Pending" }); setShowInv(false); fetchAll();
+    setFInv({ invoiceId:"", client:"", service:"", amount:"", date:"", status:"Pending" }); setShowInv(false); fetchAll();
   };
 
   // Open schedule modal with pre-filled date
@@ -801,7 +801,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                         <div className="ms-label">In Progress</div>
                       </div>
                     </div>
-                    {m.working_on&&<div className="member-tasks" style={{fontSize:"11px",marginBottom:"10px"}}>📌 {m.working_on}</div>}
+                    {(m.workingOn||m.working_on)&&<div className="member-tasks" style={{fontSize:"11px",marginBottom:"10px"}}>📌 {m.workingOn||m.working_on}</div>}
                     {stats.assigned>0&&(
                       <div>
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: "var(--muted)", marginBottom: "4px" }}>

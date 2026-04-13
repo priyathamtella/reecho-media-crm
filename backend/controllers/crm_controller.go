@@ -231,6 +231,21 @@ func CreateTask(c *fiber.Ctx) error {
 	}
 	input.ID = id
 	input.UserID = adminID
+
+	// Notify assigned members
+	if input.Assignees != "" {
+		for _, name := range models.SplitAssignees(input.Assignees) {
+			var member models.TeamMember
+			if err := database.DB.Get(&member, "SELECT * FROM team_members WHERE name = $1 AND user_id = $2 AND deleted_at IS NULL LIMIT 1", name, adminID); err == nil && member.Email != "" {
+				go sendEmail(member.Email,
+					fmt.Sprintf("📌 New Task Assigned: %s", input.Title),
+					fmt.Sprintf("Hi %s,\n\nYou have been assigned a new task:\n\n📋 Task: %s\n🏢 Client: %s\n🏷️ Tag: %s\n📅 Due: %s\n\nLogin to manage it: https://reechomedia.com/login\n\n— Reecho Media Team",
+						member.Name, input.Title, input.Client, input.Tag, input.DueDate),
+				)
+			}
+		}
+	}
+
 	return c.Status(fiber.StatusCreated).JSON(input)
 }
 
@@ -378,6 +393,18 @@ func CreateInvoice(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create invoice"})
 	}
 	input.ID = id
+
+	// Notify admin when member requests a payout
+	if role == "member" {
+		var member models.TeamMember
+		database.DB.Get(&member, "SELECT * FROM team_members WHERE email = $1 AND deleted_at IS NULL LIMIT 1", email)
+		go sendEmail(notifyEmail(),
+			fmt.Sprintf("💸 Payout Request from %s", member.Name),
+			fmt.Sprintf("Hi Admin,\n\n%s has submitted a payout request:\n\n🧾 Service: %s\n💰 Amount: ₹%d\n\nReview it here: https://reechomedia.com/login\n\n— Reecho Media CRM",
+				member.Name, input.Service, input.Amount),
+		)
+	}
+
 	return c.Status(fiber.StatusCreated).JSON(input)
 }
 
@@ -425,6 +452,49 @@ func UpdateInvoice(c *fiber.Ctx) error {
 		"UPDATE invoices SET status=$1, decline_reason=$2, updated_at=NOW() WHERE id=$3",
 		inv.Status, inv.DeclineReason, inv.ID,
 	)
+
+	// Notify the relevant party
+	switch role {
+	case "admin":
+		// Admin approved or declined a member payout
+		if inv.Type == "payout" {
+			var member models.TeamMember
+			if err := database.DB.Get(&member, "SELECT * FROM team_members WHERE email = $1 AND deleted_at IS NULL LIMIT 1", inv.Sender); err == nil && member.Email != "" {
+				if inv.Status == "Paid" {
+					go sendEmail(member.Email,
+						"✅ Payout Approved!",
+						fmt.Sprintf("Hi %s,\n\nGreat news! Your payout request has been approved and paid.\n\n💰 Amount: ₹%d\n🧾 Service: %s\n\n— Reecho Media Team",
+							member.Name, inv.Amount, inv.Service),
+					)
+				} else if inv.Status == "Declined" {
+					go sendEmail(member.Email,
+						"❌ Payout Request Declined",
+						fmt.Sprintf("Hi %s,\n\nYour payout request has been declined.\n\n💰 Amount: ₹%d\n🧾 Service: %s\n📝 Reason: %s\n\nPlease contact your admin for clarification.\n\n— Reecho Media Team",
+							member.Name, inv.Amount, inv.Service, inv.DeclineReason),
+					)
+				}
+			}
+		}
+		// Admin updated a client invoice status — notify client
+		if inv.Type == "client" {
+			var client models.Client
+			if err := database.DB.Get(&client, "SELECT * FROM clients WHERE name = $1 AND user_id = $2 AND deleted_at IS NULL LIMIT 1", inv.Client, adminID); err == nil && client.Email != "" {
+				go sendEmail(client.Email,
+					fmt.Sprintf("🧾 Invoice Update from Reecho Media"),
+					fmt.Sprintf("Hi %s,\n\nYour invoice status has been updated to: %s\n\n💰 Amount: ₹%d\n🧾 Service: %s\n\nLogin to view details: https://reechomedia.com/login\n\n— Reecho Media Team",
+						client.Name, inv.Status, inv.Amount, inv.Service),
+				)
+			}
+		}
+	case "client":
+		// Client marked their invoice as Paid — notify admin
+		go sendEmail(notifyEmail(),
+			fmt.Sprintf("💳 Client Invoice Marked as %s", inv.Status),
+			fmt.Sprintf("Hi Admin,\n\nClient %s has marked invoice %s as %s.\n\n💰 Amount: ₹%d\n🧾 Service: %s\n\n— Reecho Media CRM",
+				inv.Client, inv.InvoiceID, inv.Status, inv.Amount, inv.Service),
+		)
+	}
+
 	return c.JSON(inv)
 }
 

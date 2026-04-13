@@ -101,12 +101,18 @@ const AppLayout = ({ children }) => {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.post(`${API}/docs`, { title: "Untitled Document" }, { headers: { Authorization: `Bearer ${token}` } });
+      // Backend (sqlx) returns lowercase "id" field
       const newId = res.data?.id || res.data?.ID;
+      if (!newId) throw new Error("Server returned document without an id");
       setDocs(prev => [res.data, ...prev]);
       navigate(`/docs/${newId}`);
-    } catch { alert("Failed to create document."); }
+    } catch (err) {
+      const msg = err.response?.data?.error || err.message || "Failed to create document.";
+      alert(msg);
+    }
     finally { setCreatingDoc(false); }
   };
+
 
   const handleDeleteBoard = async (e, boardId) => {
     e.stopPropagation();

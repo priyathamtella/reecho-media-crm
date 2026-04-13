@@ -46,7 +46,7 @@ const DocumentEditor = () => {
             try {
                 const token = localStorage.getItem("token");
                 const headers = { Authorization: `Bearer ${token}` };
-                
+
                 // Fetch Doc
                 const res = await axios.get(`${API}/docs/${id}?t=${Date.now()}`, { headers });
                 const dData = res.data.doc || res.data;
@@ -54,11 +54,11 @@ const DocumentEditor = () => {
                 setTitle(dData.title);
                 setLinkedBoardId(dData.linkedBoardId || null);
                 setLinkedTaskId(dData.linkedTaskId || null);
-                
+
                 if (editorRef.current) {
                     editorRef.current.innerHTML = dData.content || "<p>Start writing your document here...</p>";
                 }
-                
+
                 // Permissions
                 const role = localStorage.getItem("userRole");
                 const permission = res.data.permission || "viewer";
@@ -67,7 +67,7 @@ const DocumentEditor = () => {
                 } else {
                     setCanEdit(false);
                 }
-                
+
                 // Related data
                 const [rBoards, rTasks] = await Promise.all([
                     axios.get(`${API}/boards`, { headers }),
@@ -75,7 +75,7 @@ const DocumentEditor = () => {
                 ]);
                 setBoards(rBoards.data || []);
                 setTasks(rTasks.data || []);
-                
+
                 setLoading(false);
             } catch (err) {
                 if (err.response?.status === 401) navigate("/login");
@@ -90,7 +90,7 @@ const DocumentEditor = () => {
     // ── AUTO-SAVE ────────────────────────────────
     const triggerSave = useCallback((overrideTitle, isImmediate = false) => {
         if (saveTimer.current) clearTimeout(saveTimer.current);
-        
+
         const saveOperation = async () => {
             setSaveStatus("saving");
             try {
@@ -134,7 +134,7 @@ const DocumentEditor = () => {
             const token = localStorage.getItem("token");
             const content = editorRef.current?.innerHTML || "";
             await axios.put(`${API}/docs/${id}`, {
-                title, content, 
+                title, content,
                 linkedBoardId: type === 'board' ? (linkId || "") : (linkedBoardId || ""),
                 linkedTaskId: type === 'task' ? (linkId || "") : (linkedTaskId || ""),
             }, { headers: { Authorization: `Bearer ${token}` } });
@@ -152,7 +152,7 @@ const DocumentEditor = () => {
             // Best-effort notify (endpoint gracefully fails if not available)
             await axios.post(`${API}/docs/${id}/submit-review`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
-            }).catch(() => {});
+            }).catch(() => { });
             setReviewSent(true);
             setTimeout(() => setReviewSent(false), 3000);
         } finally {
@@ -219,12 +219,12 @@ const DocumentEditor = () => {
 
                     {doc?.reviewStatus === "in_review" && (
                         <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 text-amber-500 rounded-lg text-xs font-bold border border-amber-500/20">
-                             Under Review
+                            Under Review
                         </div>
                     )}
                     {doc?.reviewStatus === "approved" && (
                         <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 text-emerald-500 rounded-lg text-xs font-bold border border-emerald-500/20">
-                             Approved ✓
+                            Approved ✓
                         </div>
                     )}
 
@@ -239,7 +239,7 @@ const DocumentEditor = () => {
                     {/* Linked task badge */}
                     {linkedTaskId && (
                         <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 text-amber-500 rounded-lg text-xs font-bold">
-                             Task: {tasks.find(t => String(t.id) === String(linkedTaskId))?.title.slice(0, 16) || "Linked"}
+                            Task: {tasks.find(t => String(t.id) === String(linkedTaskId))?.title.slice(0, 16) || "Linked"}
                         </div>
                     )}
 
@@ -256,11 +256,10 @@ const DocumentEditor = () => {
                         <button
                             onClick={handleSubmitReview}
                             disabled={submittingReview || reviewSent || doc?.reviewStatus === "approved"}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                                reviewSent || doc?.reviewStatus === "approved"
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${reviewSent || doc?.reviewStatus === "approved"
                                     ? "bg-emerald-500 text-white"
                                     : "bg-violet-600 hover:bg-violet-700 text-white"
-                            }`}>
+                                }`}>
                             {submittingReview ? <Loader2 size={13} className="animate-spin" /> : (reviewSent || doc?.reviewStatus === "approved") ? <Check size={13} /> : <Send size={13} />}
                             {doc?.reviewStatus === "approved" ? "Approved" : reviewSent ? "Sent to Admin!" : "Submit for Review"}
                         </button>

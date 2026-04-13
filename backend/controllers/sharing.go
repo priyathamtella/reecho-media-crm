@@ -223,6 +223,19 @@ func ApproveDocReview(c *fiber.Ctx) error {
 	}
 
 	database.DB.Exec("UPDATE documents SET review_status='approved', updated_at=NOW() WHERE id=$1", docID)
+
+	// Notify the member who submitted
+	if doc.ReviewerName != "" {
+		var member models.TeamMember
+		if err := database.DB.Get(&member, "SELECT * FROM team_members WHERE name = $1 AND deleted_at IS NULL LIMIT 1", doc.ReviewerName); err == nil && member.Email != "" {
+			go sendEmail(member.Email,
+				fmt.Sprintf("✅ Document Approved: %s", doc.Title),
+				fmt.Sprintf("Hi %s,\n\nYour document has been reviewed and approved by the admin!\n\n📄 Document: %s\n\nView it here: https://reechomedia.com/docs/%s\n\n— Reecho Media Team",
+					member.Name, doc.Title, docIDStr),
+			)
+		}
+	}
+
 	return c.JSON(fiber.Map{"message": "Document approved"})
 }
 
@@ -273,5 +286,18 @@ func ApproveBoardReview(c *fiber.Ctx) error {
 	}
 
 	database.DB.Exec("UPDATE boards SET review_status='approved', updated_at=NOW() WHERE id=$1", boardID)
+
+	// Notify the member who submitted
+	if board.ReviewerName != "" {
+		var member models.TeamMember
+		if err := database.DB.Get(&member, "SELECT * FROM team_members WHERE name = $1 AND deleted_at IS NULL LIMIT 1", board.ReviewerName); err == nil && member.Email != "" {
+			go sendEmail(member.Email,
+				fmt.Sprintf("✅ Board Approved: %s", board.Title),
+				fmt.Sprintf("Hi %s,\n\nYour board has been reviewed and approved by the admin!\n\n🎨 Board: %s\n\nView it here: https://reechomedia.com/boards/%s\n\n— Reecho Media Team",
+					member.Name, board.Title, boardIDStr),
+			)
+		}
+	}
+
 	return c.JSON(fiber.Map{"message": "Board approved"})
 }
