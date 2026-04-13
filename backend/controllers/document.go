@@ -126,7 +126,7 @@ func GetAllDocuments(c *fiber.Ctx) error {
 		}
 	}
 
-	// 4. Admin workspace pool
+	// 4. Admin workspace pool (all docs owned by admin or their members)
 	if role == "admin" {
 		adminID, _ := uuid.Parse(adminIDStr)
 		var memberIDs []uuid.UUID
@@ -161,12 +161,46 @@ func GetDocument(c *fiber.Ctx) error {
 	userIDStr, _ := c.Locals("userID").(string)
 	userID, _ := uuid.Parse(userIDStr)
 	adminIDStr, role, email := getAdminContext(c)
+	adminID, _ := uuid.Parse(adminIDStr)
 	docID := c.Params("id")
 	parsedID, _ := uuid.Parse(docID)
 
 	var doc models.Document
 
-	// 1. Owned
+	// ── ADMIN: broad access to entire workspace ────────────────────────────────
+	if role == "admin" {
+		// 1. Direct owner match (userID from JWT — most common case)
+		if err := database.DB.Get(&doc, "SELECT * FROM documents WHERE id = $1 AND owner_id = $2 LIMIT 1", parsedID, userID); err == nil {
+			return c.JSON(fiber.Map{"doc": doc, "permission": "editor"})
+		}
+		// 2. adminID match (resolved parent admin ID — fallback)
+		if adminID != userID {
+			if err := database.DB.Get(&doc, "SELECT * FROM documents WHERE id = $1 AND owner_id = $2 LIMIT 1", parsedID, adminID); err == nil {
+				return c.JSON(fiber.Map{"doc": doc, "permission": "editor"})
+			}
+		}
+		// 3. Member-owned docs in admin's workspace
+		var memberIDs []uuid.UUID
+		database.DB.Select(&memberIDs,
+			"SELECT u.id FROM users u INNER JOIN team_members tm ON tm.email = u.email WHERE tm.user_id = $1 AND tm.deleted_at IS NULL",
+			adminIDStr)
+		if len(memberIDs) > 0 {
+			q, args, _ := sqlx.In("SELECT * FROM documents WHERE id = ? AND owner_id IN (?) LIMIT 1", parsedID, memberIDs)
+			q = database.DB.Rebind(q)
+			if err := database.DB.Get(&doc, q, args...); err == nil {
+				return c.JSON(fiber.Map{"doc": doc, "permission": "editor"})
+			}
+		}
+		// 4. Absolute fallback: fetch doc by ID alone (admin owns their workspace)
+		if err := database.DB.Get(&doc, "SELECT * FROM documents WHERE id = $1 LIMIT 1", parsedID); err == nil {
+			return c.JSON(fiber.Map{"doc": doc, "permission": "editor"})
+		}
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Document not found"})
+	}
+
+	// ── NON-ADMIN CHECKS ──────────────────────────────────────────────────────
+
+	// 1. Owned directly
 	if err := database.DB.Get(&doc, "SELECT * FROM documents WHERE id = $1 AND owner_id = $2 LIMIT 1", parsedID, userID); err == nil {
 		return c.JSON(fiber.Map{"doc": doc, "permission": "editor"})
 	}
@@ -199,25 +233,6 @@ func GetDocument(c *fiber.Ctx) error {
 		}
 	}
 
-	// 4. Admin fallback
-	if role == "admin" {
-		adminID, _ := uuid.Parse(adminIDStr)
-		if err := database.DB.Get(&doc, "SELECT * FROM documents WHERE id = $1 AND owner_id = $2 LIMIT 1", parsedID, adminID); err == nil {
-			return c.JSON(fiber.Map{"doc": doc, "permission": "editor"})
-		}
-		var memberIDs []uuid.UUID
-		database.DB.Select(&memberIDs,
-			"SELECT u.id FROM users u INNER JOIN team_members tm ON tm.email = u.email WHERE tm.user_id = $1 AND tm.deleted_at IS NULL",
-			adminIDStr)
-		if len(memberIDs) > 0 {
-			q, args, _ := sqlx.In("SELECT * FROM documents WHERE id = ? AND owner_id IN (?) LIMIT 1", parsedID, memberIDs)
-			q = database.DB.Rebind(q)
-			if err := database.DB.Get(&doc, q, args...); err == nil {
-				return c.JSON(fiber.Map{"doc": doc, "permission": "editor"})
-			}
-		}
-	}
-
 	return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Document not found"})
 }
 
@@ -236,6 +251,8 @@ func UpdateDocument(c *fiber.Ctx) error {
 	if role == "admin" {
 		adminID, _ := uuid.Parse(adminIDStr)
 		if err := database.DB.Get(&doc, "SELECT * FROM documents WHERE id = $1 AND owner_id = $2 LIMIT 1", parsedID, adminID); err == nil {
+			canEdit = true
+		} else if err := database.DB.Get(&doc, "SELECT * FROM documents WHERE id = $1 AND owner_id = $2 LIMIT 1", parsedID, userID); err == nil {
 			canEdit = true
 		} else {
 			var memberIDs []uuid.UUID
@@ -327,7 +344,7 @@ func DeleteDocument(c *fiber.Ctx) error {
 	canDelete := false
 	if role == "admin" {
 		adminID, _ := uuid.Parse(adminIDStr)
-		if doc.OwnerID == adminID {
+		if doc.OwnerID == adminID || doc.OwnerID == realUserID {
 			canDelete = true
 		} else {
 			var cnt int
