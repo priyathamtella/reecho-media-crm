@@ -240,7 +240,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
     if (!t.dueDate || t.status === "Done") return false;
     const diff = (new Date(t.dueDate) - today) / 86400000;
     return diff >= 0 && diff <= 7;
-  }).sort((a,b) => new Date(a.due_date)-new Date(b.due_date));
+  }).sort((a,b) => new Date(a.dueDate)-new Date(b.dueDate));
 
   // overdue tasks (past due, not done)
   const overdueTasks = tasks.filter(t => {
@@ -250,10 +250,10 @@ export default function CrmView({ currentPage, setCurrentPage }) {
 
   // Notification list
   const notifications = [
-    ...overdueTasks.map(t => ({ type:"overdue", text:`"${t.title}" is overdue`, sub:t.client, id:`od-${t.ID}` })),
-    ...soon.filter(t=>{ const d=(new Date(t.due_date)-today)/86400000; return d<=1; }).map(t=>({ type:"urgent", text:`"${t.title}" due today/tomorrow`, sub:t.client, id:`ug-${t.ID}` })),
-    ...invoices.filter(i=>i.status==="Overdue").map(i=>({ type:"invoice", text:`Invoice ${i.invoice_id||"#"+i.ID} overdue`, sub:`₹${(i.amount||0).toLocaleString("en-IN")} from ${i.client}`, id:`inv-${i.ID}` })),
-    ...invoices.filter(i=>i.status==="Pending").slice(0,2).map(i=>({ type:"pending", text:`Invoice ${i.invoice_id||"#"+i.ID} pending`, sub:`₹${(i.amount||0).toLocaleString("en-IN")} from ${i.client}`, id:`pnd-${i.ID}` })),
+    ...overdueTasks.map(t => ({ type:"overdue", text:`"${t.title}" is overdue`, sub:t.client, id:`od-${t.ID||t.id}` })),
+    ...soon.filter(t=>{ const d=(new Date(t.dueDate)-today)/86400000; return d<=1; }).map(t=>({ type:"urgent", text:`"${t.title}" due today/tomorrow`, sub:t.client, id:`ug-${t.ID||t.id}` })),
+    ...invoices.filter(i=>i.status==="Overdue").map(i=>({ type:"invoice", text:`Invoice ${i.invoiceId||"#"+(i.ID||i.id)} overdue`, sub:`₹${(i.amount||0).toLocaleString("en-IN")} from ${i.client}`, id:`inv-${i.ID||i.id}` })),
+    ...invoices.filter(i=>i.status==="Pending").slice(0,2).map(i=>({ type:"pending", text:`Invoice ${i.invoiceId||"#"+(i.ID||i.id)} pending`, sub:`₹${(i.amount||0).toLocaleString("en-IN")} from ${i.client}`, id:`pnd-${i.ID||i.id}` })),
   ];
 
   // Filtered clients list
@@ -272,8 +272,8 @@ export default function CrmView({ currentPage, setCurrentPage }) {
     const completed = assigned.filter(t => t.status === "Done");
     const inProgress = assigned.filter(t => t.status === "In Progress");
     return {
-      assigned:   assigned.length   || m.tasks_num  || 0,
-      completed:  completed.length  || m.tasks_done || 0,
+      assigned:   assigned.length   || m.tasksNum   || 0,
+      completed:  completed.length  || m.tasksDone  || 0,
       inProgress: inProgress.length,
     };
   };
@@ -459,7 +459,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                         <div className={`avatar av-purple`} style={{width:"28px",height:"28px",fontSize:"9px",flexShrink:0}}>{(t.assignees||"?").substring(0,2).toUpperCase()}</div>
                         <div style={{flex:1,minWidth:0}}>
                           <div style={{fontWeight:"600",fontSize:"12px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.title}</div>
-                          <div style={{fontSize:"10px",color:"var(--muted)"}}>{t.client} · Due {t.due_date||"—"}</div>
+                          <div style={{fontSize:"10px",color:"var(--muted)"}}>{t.client} · Due {t.dueDate||"—"}</div>
                         </div>
                         <span style={{ fontSize: "10px", background: `${TAG_COLORS[(t.tag || "content").toLowerCase()]}22`, color: TAG_COLORS[(t.tag || "content").toLowerCase()] || "#6c63ff", padding: "2px 7px", borderRadius: "4px", whiteSpace: "nowrap" }}>{t.tag}</span>
                       </div>
@@ -493,7 +493,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                   <div className="card-header"><div className="card-title">👤 Team ({team.length})</div><span className="card-action" style={{ cursor: "pointer" }} onClick={() => setCurrentPage("team")}>Manage</span></div>
                   <div className="card-body">
                     {team.slice(0, 5).map(m => (
-                      <div key={m.ID} style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
+                      <div key={m.id || m.ID} style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
                         <div className={`avatar ${m.color || "av-blue"}`} style={{ width: "30px", height: "30px", fontSize: "10px", flexShrink: 0 }}>{m.initials || m.name.substring(0, 2).toUpperCase()}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontWeight: "600", fontSize: "12px" }}>{m.name}</div>
@@ -552,7 +552,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                           <div className="task-name" style={{marginBottom:"4px"}}>{task.title}</div>
                           <div className="task-client">📌 {task.client||"General"}</div>
                           <div className="task-footer" style={{marginTop:"8px"}}>
-                            <div className="task-due" style={{color:status==="Done"?"var(--accent3)":"",fontSize:"11px"}}>{status==="Done"?"✓ Done":task.due_date||"—"}</div>
+                            <div className="task-due" style={{color:status==="Done"?"var(--accent3)":"",fontSize:"11px"}}>{status==="Done"?"✓ Done":task.dueDate||"—"}</div>
                             {/* Avatar stack for multiple assignees */}
                             <div style={{ display: "flex", alignItems: "center" }}>
                               {task.assignees ? [...new Set(task.assignees.split(",").map(s => s.trim()).filter(Boolean))].map((name, i) => {
@@ -729,7 +729,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                             {userRole === "admin" && (
                               <button className="btn btn-ghost" style={{ padding: "4px 8px", color: "var(--accent2)" }} onClick={async () => {
                                 if (window.confirm("Remove this post?")) {
-                                  try { await axios.delete(`${API}/calendar/${ev.ID}`, auth()); fetchAll(); } catch (e) { console.error(e); }
+                                  try { await axios.delete(`${API}/calendar/${ev.id || ev.ID}`, auth()); fetchAll(); } catch (e) { console.error(e); }
                                 }
                               }}>✕</button>
                             )}
@@ -763,7 +763,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                 const stats = getMemberStats(m);
                 const pct = stats.assigned > 0 ? Math.round((stats.completed / stats.assigned) * 100) : 0;
                 return (
-                  <div className="member-card" key={m.ID} style={{ position: "relative" }}>
+                  <div className="member-card" key={m.id} style={{ position: "relative" }}>
                     {/* Action buttons */}
                     <div style={{ position: "absolute", top: "10px", right: "10px", display: "flex", gap: "6px" }}>
                       {userRole === "admin" && (
@@ -773,7 +773,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
                             style={{ background: "rgba(108,99,255,0.1)", border: "1px solid rgba(108,99,255,0.2)", borderRadius: "6px", cursor: "pointer", fontSize: "11px", color: "var(--accent)", padding: "2px 8px" }}
                           >✏️ Edit</button>
                           <button
-                            onClick={() => { if (window.confirm(`Remove ${m.name}?`)) deleteTeamMember(m.ID); }}
+                            onClick={() => { if (window.confirm(`Remove ${m.name}?`)) deleteTeamMember(m.id || m.ID); }}
                             style={{ background: "rgba(255,101,132,0.1)", border: "1px solid rgba(255,101,132,0.2)", borderRadius: "6px", cursor: "pointer", fontSize: "11px", color: "var(--accent2)", padding: "2px 8px" }}
                           >✕</button>
                         </>
@@ -845,7 +845,7 @@ export default function CrmView({ currentPage, setCurrentPage }) {
               <div className="client-list">
                 <div className="client-row header"><div>Client</div><div>Package</div><div>Status</div><div>Monthly Value</div></div>
                 {filteredClients.map(c => (
-                  <div className="client-row" key={c.ID}>
+                  <div className="client-row" key={c.id}>
                     <div className="client-info">
                       <div className={`client-logo ${c.color || "av-purple"}`}>{c.initials || c.name.substring(0, 2).toUpperCase()}</div>
                       <div><div className="client-name">{c.name}</div><div className="client-industry">{c.industry}</div></div>
