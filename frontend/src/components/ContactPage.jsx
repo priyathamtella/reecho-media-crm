@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { API } from '../api';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import { motion } from 'framer-motion';
@@ -26,7 +27,7 @@ const ContactPage = () => {
     const whatsappUrl = `https://wa.me/919121492646?text=${encodedText}`;
 
     try {
-      const res = await fetch('https://reechomedia.com/contact', {
+      const res = await fetch(`${API}/contact`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -165,3 +166,4 @@ const ContactPage = () => {
 };
 
 export default ContactPage;
+

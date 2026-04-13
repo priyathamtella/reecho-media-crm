@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+
 	"reecho_media_crm/database"
 	"reecho_media_crm/models"
 
@@ -9,40 +10,39 @@ import (
 	"github.com/google/uuid"
 )
 
-// GetTeamMembersList: Returns all team members under the admin (for share dropdowns)
-// Also includes `memberUserId` – the UUID of the member's own user account – so the
-// frontend can match board/doc `ownerId` to the correct team member section.
+// ─── GetTeamMembersList ────────────────────────────────────────────────────────
+// Returns all team members under the admin (used for share dropdowns).
+// Also includes memberUserId so the frontend can match board/doc ownerId.
+
 func GetTeamMembersList(c *fiber.Ctx) error {
 	adminID, role, email := getAdminContext(c)
+
 	if role == "member" {
 		var member models.TeamMember
-		database.DB.Where("email = ?", email).First(&member)
-		// Look up the member's own user UUID
+		database.DB.Get(&member, "SELECT * FROM team_members WHERE email = $1 AND deleted_at IS NULL LIMIT 1", email)
 		var user models.User
 		memberUserID := ""
-		if err := database.DB.Where("email = ?", member.Email).First(&user).Error; err == nil {
+		if err := database.DB.Get(&user, "SELECT * FROM users WHERE email = $1 LIMIT 1", member.Email); err == nil {
 			memberUserID = user.ID.String()
 		}
-		return c.JSON([]fiber.Map{
-			{
-				"id": member.ID, "name": member.Name, "email": member.Email,
-				"role": member.Role, "initials": member.Initials, "color": member.Color,
-				"userId": member.UserID, "memberUserId": memberUserID,
-			},
-		})
+		return c.JSON([]fiber.Map{{
+			"id": member.ID, "name": member.Name, "email": member.Email,
+			"role": member.Role, "initials": member.Initials, "color": member.Color,
+			"userId": member.UserID, "memberUserId": memberUserID,
+		}})
 	}
 	if role == "client" {
 		return c.JSON([]fiber.Map{})
 	}
-	var members []models.TeamMember
-	database.DB.Where("user_id = ?", adminID).Find(&members)
 
-	// For each member, look up their own user UUID
+	var members []models.TeamMember
+	database.DB.Select(&members, "SELECT * FROM team_members WHERE user_id = $1 AND deleted_at IS NULL", adminID)
+
 	result := make([]fiber.Map, 0, len(members))
 	for _, m := range members {
 		var user models.User
 		memberUserID := ""
-		if err := database.DB.Where("email = ?", m.Email).First(&user).Error; err == nil {
+		if err := database.DB.Get(&user, "SELECT * FROM users WHERE email = $1 LIMIT 1", m.Email); err == nil {
 			memberUserID = user.ID.String()
 		}
 		result = append(result, fiber.Map{
@@ -54,7 +54,8 @@ func GetTeamMembersList(c *fiber.Ctx) error {
 	return c.JSON(result)
 }
 
-// ShareBoard: Admin grants a user access to a specific board
+// ─── ShareBoard ────────────────────────────────────────────────────────────────
+
 func ShareBoard(c *fiber.Ctx) error {
 	adminIDStr, role, _ := getAdminContext(c)
 	if role != "admin" {
@@ -64,66 +65,59 @@ func ShareBoard(c *fiber.Ctx) error {
 	boardIDStr := c.Params("id")
 	boardID, err := uuid.Parse(boardIDStr)
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid board ID"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid board ID"})
 	}
 
 	type ShareInput struct {
-		TargetType  string `json:"type"`       // "member" or "client"
+		TargetType  string `json:"type"`
 		TargetEmail string `json:"email"`
-		Permission  string `json:"permission"` // "editor" or "viewer"
+		Permission  string `json:"permission"`
+	}
+	var inputs []ShareInput
+	if err := c.BodyParser(&inputs); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
-	var input []ShareInput
-	if err := c.BodyParser(&input); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
-	}
+	// Replace all existing access for this board
+	database.DB.Exec("DELETE FROM board_accesses WHERE board_id = $1", boardID)
 
-	// Remove existing access entries for this board
-	database.DB.Where("board_id = ?", boardID).Delete(&models.BoardAccess{})
+	for _, inp := range inputs {
+		database.DB.Exec(
+			"INSERT INTO board_accesses (board_id, target_type, target_email, permission, admin_id) VALUES ($1,$2,$3,$4,$5)",
+			boardID, inp.TargetType, inp.TargetEmail, inp.Permission, adminIDStr,
+		)
 
-	// Re-create for selected targets
-	for _, target := range input {
-		access := models.BoardAccess{
-			BoardID:     boardID,
-			TargetType:  target.TargetType,
-			TargetEmail: target.TargetEmail,
-			Permission:  target.Permission,
-			AdminID:     &adminIDStr,
-		}
-		if err := database.DB.Create(&access).Error; err != nil {
-			fmt.Printf("Error creating BoardAccess: %v\n", err)
-		}
-
-		// Send notification email
+		// Notify the user
 		var board models.Board
-		database.DB.Where("id = ?", boardID).First(&board)
-		subject := "A board has been shared with you"
-		body := fmt.Sprintf("Hi,\n\nThe board \"%s\" has been shared with you as a %s.\n\nYou can view it here: https://reechomedia.com/boards/%s\n\n— Reecho Media Team", 
-			board.Title, target.Permission, boardID)
-		sendEmail(target.TargetEmail, subject, body)
+		database.DB.Get(&board, "SELECT * FROM boards WHERE id = $1 LIMIT 1", boardID)
+		go sendEmail(inp.TargetEmail,
+			"A board has been shared with you",
+			fmt.Sprintf("Hi,\n\nThe board \"%s\" has been shared with you as a %s.\n\nView it here: https://reechomedia.com/boards/%s\n\n— Reecho Media Team",
+				board.Title, inp.Permission, boardIDStr),
+		)
 	}
-
 	return c.JSON(fiber.Map{"message": "Board shared successfully"})
 }
 
-// GetBoardSharedMembers: Returns full access details for a board
+// ─── GetBoardSharedMembers ─────────────────────────────────────────────────────
+
 func GetBoardSharedMembers(c *fiber.Ctx) error {
-	adminIDStr, role, _ := getAdminContext(c)
-	_ = adminIDStr
+	_, role, _ := getAdminContext(c)
 	if role != "admin" {
 		return c.JSON([]interface{}{})
 	}
 	boardIDStr := c.Params("id")
 	boardID, err := uuid.Parse(boardIDStr)
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid board ID"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid board ID"})
 	}
 	var accesses []models.BoardAccess
-	database.DB.Where("board_id = ?", boardID).Find(&accesses)
+	database.DB.Select(&accesses, "SELECT * FROM board_accesses WHERE board_id = $1", boardID)
 	return c.JSON(accesses)
 }
 
-// ShareDoc: Admin grants a user access to a specific document
+// ─── ShareDoc ─────────────────────────────────────────────────────────────────
+
 func ShareDoc(c *fiber.Ctx) error {
 	adminIDStr, role, _ := getAdminContext(c)
 	if role != "admin" {
@@ -133,7 +127,7 @@ func ShareDoc(c *fiber.Ctx) error {
 	docIDStr := c.Params("id")
 	docID, err := uuid.Parse(docIDStr)
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid document ID"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid document ID"})
 	}
 
 	type ShareInput struct {
@@ -141,56 +135,49 @@ func ShareDoc(c *fiber.Ctx) error {
 		TargetEmail string `json:"email"`
 		Permission  string `json:"permission"`
 	}
-
-	var input []ShareInput
-	if err := c.BodyParser(&input); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
+	var inputs []ShareInput
+	if err := c.BodyParser(&inputs); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
-	database.DB.Where("doc_id = ?", docID).Delete(&models.DocAccess{})
+	database.DB.Exec("DELETE FROM doc_accesses WHERE doc_id = $1", docID)
 
-	for _, target := range input {
-		access := models.DocAccess{
-			DocID:       docID,
-			TargetType:  target.TargetType,
-			TargetEmail: target.TargetEmail,
-			Permission:  target.Permission,
-			AdminID:     &adminIDStr,
-		}
-		if err := database.DB.Create(&access).Error; err != nil {
-			fmt.Printf("Error creating DocAccess: %v\n", err)
-		}
+	for _, inp := range inputs {
+		database.DB.Exec(
+			"INSERT INTO doc_accesses (doc_id, target_type, target_email, permission, admin_id) VALUES ($1,$2,$3,$4,$5)",
+			docID, inp.TargetType, inp.TargetEmail, inp.Permission, adminIDStr,
+		)
 
-		// Send notification email
 		var doc models.Document
-		database.DB.Where("id = ?", docID).First(&doc)
-		subject := "A document has been shared with you"
-		body := fmt.Sprintf("Hi,\n\nThe document \"%s\" has been shared with you as a %s.\n\nYou can view it here: https://reechomedia.com/docs/%s\n\n— Reecho Media Team", 
-			doc.Title, target.Permission, docID)
-		sendEmail(target.TargetEmail, subject, body)
+		database.DB.Get(&doc, "SELECT * FROM documents WHERE id = $1 LIMIT 1", docID)
+		go sendEmail(inp.TargetEmail,
+			"A document has been shared with you",
+			fmt.Sprintf("Hi,\n\nThe document \"%s\" has been shared with you as a %s.\n\nView it here: https://reechomedia.com/docs/%s\n\n— Reecho Media Team",
+				doc.Title, inp.Permission, docIDStr),
+		)
 	}
-
 	return c.JSON(fiber.Map{"message": "Document shared successfully"})
 }
 
-// GetDocSharedMembers: Returns who has access to a document
+// ─── GetDocSharedMembers ──────────────────────────────────────────────────────
+
 func GetDocSharedMembers(c *fiber.Ctx) error {
-	adminIDStr, role, _ := getAdminContext(c)
-	_ = adminIDStr
+	_, role, _ := getAdminContext(c)
 	if role != "admin" {
 		return c.JSON([]interface{}{})
 	}
 	docIDStr := c.Params("id")
 	docID, err := uuid.Parse(docIDStr)
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid document ID"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid document ID"})
 	}
 	var accesses []models.DocAccess
-	database.DB.Where("doc_id = ?", docID).Find(&accesses)
+	database.DB.Select(&accesses, "SELECT * FROM doc_accesses WHERE doc_id = $1", docID)
 	return c.JSON(accesses)
 }
 
-// SubmitDocForReview: Member marks a document as ready for admin review
+// ─── SubmitDocForReview ───────────────────────────────────────────────────────
+
 func SubmitDocForReview(c *fiber.Ctx) error {
 	_, role, email := getAdminContext(c)
 	if role != "member" {
@@ -199,91 +186,92 @@ func SubmitDocForReview(c *fiber.Ctx) error {
 	docIDStr := c.Params("id")
 	docID, _ := uuid.Parse(docIDStr)
 
-	// Get member name
 	var member models.TeamMember
-	database.DB.Where("email = ?", email).First(&member)
+	database.DB.Get(&member, "SELECT * FROM team_members WHERE email = $1 AND deleted_at IS NULL LIMIT 1", email)
 
-	// Find the doc (any owner, since member has shared access)
 	var doc models.Document
-	if err := database.DB.Where("id = ?", docID).First(&doc).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "Document not found"})
+	if err := database.DB.Get(&doc, "SELECT * FROM documents WHERE id = $1 LIMIT 1", docID); err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Document not found"})
 	}
-	doc.ReviewStatus = "in_review"
-	doc.ReviewerName = member.Name
-	database.DB.Save(&doc)
 
-	// Notify admin (use the adminID string or just the known admin email)
-	adminEmail := "priyathamtella@gmail.com"
-	subject := "Document Review Requested"
-	body := fmt.Sprintf("Hi Admin,\n\nMember %s has submitted the document \"%s\" for review.\n\nView and Approve here: https://reechomedia.com/docs/%s\n\n— Reecho Media System", 
-		member.Name, doc.Title, docID)
-	sendEmail(adminEmail, subject, body)
+	database.DB.Exec(
+		"UPDATE documents SET review_status='in_review', reviewer_name=$1, updated_at=NOW() WHERE id=$2",
+		member.Name, docID,
+	)
 
+	go sendEmail(notifyEmail(),
+		fmt.Sprintf("Document Review Requested: %s", doc.Title),
+		fmt.Sprintf("Hi Admin,\n\n%s has submitted \"%s\" for review.\n\nApprove here: https://reechomedia.com/docs/%s\n\n— Reecho Media CRM",
+			member.Name, doc.Title, docIDStr),
+	)
 	return c.JSON(fiber.Map{"message": "Submitted for review"})
 }
 
-// ApproveDocReview: Admin marks a document review as approved
+// ─── ApproveDocReview ─────────────────────────────────────────────────────────
+
 func ApproveDocReview(c *fiber.Ctx) error {
 	_, role, _ := getAdminContext(c)
 	if role != "admin" {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can approve"})
 	}
 	docIDStr := c.Params("id")
-	var doc models.Document
-	if err := database.DB.Where("id = ?", docIDStr).First(&doc).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "Document not found"})
-	}
-	doc.ReviewStatus = "approved"
-	database.DB.Save(&doc)
+	docID, _ := uuid.Parse(docIDStr)
 
-	// Notify the creator/member (optional, but requested)
-	// We'll try to find the reviewer's email if possible, or just skip if not critical.
-	// For now, let's keep it simple.
-	
+	var doc models.Document
+	if err := database.DB.Get(&doc, "SELECT * FROM documents WHERE id = $1 LIMIT 1", docID); err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Document not found"})
+	}
+
+	database.DB.Exec("UPDATE documents SET review_status='approved', updated_at=NOW() WHERE id=$1", docID)
 	return c.JSON(fiber.Map{"message": "Document approved"})
 }
 
-// SubmitBoardForReview: Member marks a board as ready for admin review
+// ─── SubmitBoardForReview ─────────────────────────────────────────────────────
+
 func SubmitBoardForReview(c *fiber.Ctx) error {
 	_, role, email := getAdminContext(c)
 	if role != "member" {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only members can submit for review"})
 	}
 	boardIDStr := c.Params("id")
+	boardID, _ := uuid.Parse(boardIDStr)
 
 	var member models.TeamMember
-	database.DB.Where("email = ?", email).First(&member)
+	database.DB.Get(&member, "SELECT * FROM team_members WHERE email = $1 AND deleted_at IS NULL LIMIT 1", email)
 
 	var board models.Board
-	if err := database.DB.Where("id = ?", boardIDStr).First(&board).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "Board not found"})
+	if err := database.DB.Get(&board, "SELECT * FROM boards WHERE id = $1 LIMIT 1", boardID); err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Board not found"})
 	}
-	board.ReviewStatus = "in_review"
-	board.ReviewerName = member.Name
-	database.DB.Save(&board)
 
-	// Notify admin
-	adminEmail := "priyathamtella@gmail.com"
-	subject := "Board Review Requested"
-	body := fmt.Sprintf("Hi Admin,\n\nMember %s has submitted the board \"%s\" for review.\n\nView and Approve here: https://reechomedia.com/boards/%s\n\n— Reecho Media System", 
-		member.Name, board.Title, boardIDStr)
-	sendEmail(adminEmail, subject, body)
+	database.DB.Exec(
+		"UPDATE boards SET review_status='in_review', reviewer_name=$1, updated_at=NOW() WHERE id=$2",
+		member.Name, boardID,
+	)
 
+	go sendEmail(notifyEmail(),
+		fmt.Sprintf("Board Review Requested: %s", board.Title),
+		fmt.Sprintf("Hi Admin,\n\n%s has submitted \"%s\" for review.\n\nApprove here: https://reechomedia.com/boards/%s\n\n— Reecho Media CRM",
+			member.Name, board.Title, boardIDStr),
+	)
 	return c.JSON(fiber.Map{"message": "Submitted for review"})
 }
 
-// ApproveBoardReview: Admin marks a board review as approved
+// ─── ApproveBoardReview ───────────────────────────────────────────────────────
+
 func ApproveBoardReview(c *fiber.Ctx) error {
 	_, role, _ := getAdminContext(c)
 	if role != "admin" {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can approve"})
 	}
 	boardIDStr := c.Params("id")
+	boardID, _ := uuid.Parse(boardIDStr)
+
 	var board models.Board
-	if err := database.DB.Where("id = ?", boardIDStr).First(&board).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "Board not found"})
+	if err := database.DB.Get(&board, "SELECT * FROM boards WHERE id = $1 LIMIT 1", boardID); err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Board not found"})
 	}
-	board.ReviewStatus = "approved"
-	database.DB.Save(&board)
+
+	database.DB.Exec("UPDATE boards SET review_status='approved', updated_at=NOW() WHERE id=$1", boardID)
 	return c.JSON(fiber.Map{"message": "Board approved"})
 }

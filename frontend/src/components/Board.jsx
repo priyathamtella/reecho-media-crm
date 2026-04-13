@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import ShareModal from "./ShareModal";
+import { API } from "../api";
 
 // ─────────────────────────────────────────────
 //  EMOJI STICKERS
@@ -204,7 +205,7 @@ const Board = () => {
     setSaveStatus("saving");
     try {
 
-      await axios.post(`https://api.reechomedia.com/api/boards/${id}/sync`,
+      await axios.post(`${API}/boards/${id}/sync`,
 
         { 
           title: boardTitle, 
@@ -231,7 +232,7 @@ const Board = () => {
         
         // Fetch Board
 
-        const res = await axios.get(`https://api.reechomedia.comapi/boards/${id}?t=${Date.now()}`, { headers });
+        const res = await axios.get(`${API}/boards/${id}?t=${Date.now()}`, { headers });
 
         const bData = res.data.board || res.data; // fallback for safety
         setBoardData(bData);
@@ -255,8 +256,8 @@ const Board = () => {
         // Fetch Tasks & Docs (only for editors/admins/members)
         if (role === "admin" || role === "member") {
           const [tasksRes, docsRes] = await Promise.all([
-            axios.get(`https://api.reechomedia.com/api/tasks`, { headers }),
-            axios.get(`https://api.reechomedia.com/api/docs`, { headers })
+            axios.get(`${API}/tasks`, { headers }),
+            axios.get(`${API}/docs`, { headers })
 
           ]);
           setTasks(tasksRes.data || []);
@@ -273,7 +274,7 @@ const Board = () => {
     const token = localStorage.getItem("token");
     try {
 
-      await axios.post(`https://api.reechomedia.com/api/boards/${id}/sync`, 
+      await axios.post(`${API}/boards/${id}/sync`, 
 
         { title: boardTitle, linkedTaskId: parseInt(taskId) || 0 },
         { headers: { Authorization: `Bearer ${token}` } }
@@ -287,7 +288,7 @@ const Board = () => {
     const token = localStorage.getItem("token");
     try {
 
-      await axios.post(`https://api.reechomedia.com/api/boards/${id}/sync`, 
+      await axios.post(`${API}/boards/${id}/sync`, 
 
         { title: boardTitle, linkedDocId: docId || "" },
         { headers: { Authorization: `Bearer ${token}` } }
@@ -302,7 +303,7 @@ const Board = () => {
     const token = localStorage.getItem("token");
     try {
 
-      await axios.delete(`https://api.reechomedia.com/api/boards/${id}`, {
+      await axios.delete(`${API}/boards/${id}`, {
 
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -315,7 +316,7 @@ const Board = () => {
     const token = localStorage.getItem("token");
     try {
 
-      await axios.post(`https://api.reechomedia.com/api/boards/${id}/submit-review`, {}, {
+      await axios.post(`${API}/boards/${id}/submit-review`, {}, {
 
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -328,7 +329,7 @@ const Board = () => {
     const token = localStorage.getItem("token");
     try {
 
-      await axios.post(`https://api.reechomedia.com/api/boards/${id}/approve`, {}, {
+      await axios.post(`${API}/boards/${id}/approve`, {}, {
 
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -342,7 +343,7 @@ const Board = () => {
     setSaveStatus("saving");
     try {
 
-      await axios.post(`https://api.reechomedia.com/api/boards/${id}/sync`, {
+      await axios.post(`${API}/boards/${id}/sync`, {
 
         title: boardTitle,
         clientStatus: status,
@@ -1360,3 +1361,4 @@ const MiniVideoTimeline = ({ item, isDark, onUpdate, videoElRef }) => {
 };
 
 export default Board;
+

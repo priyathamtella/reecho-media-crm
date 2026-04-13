@@ -2,90 +2,96 @@ package controllers
 
 import (
 	"fmt"
+
 	"reecho_media_crm/database"
 	"reecho_media_crm/models"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 )
 
-// CreateDocument: Create a new rich-text document (admin or member)
+// ─── CREATE DOCUMENT ──────────────────────────────────────────────────────────
+
 func CreateDocument(c *fiber.Ctx) error {
 	_, role, _ := getAdminContext(c)
 	if role != "admin" && role != "member" {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins or members can create documents"})
 	}
 
-	userIDStr, ok := c.Locals("userID").(string)
-	if !ok {
-		return c.Status(401).JSON(fiber.Map{"error": "Unauthorized"})
+	userIDStr, _ := c.Locals("userID").(string)
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
 	}
-	userID, _ := uuid.Parse(userIDStr)
 
 	var input struct {
 		Title         string  `json:"title"`
 		LinkedBoardID *string `json:"linkedBoardId"`
 	}
 	if err := c.BodyParser(&input); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
 	if input.Title == "" {
 		input.Title = "Untitled Document"
 	}
 
 	doc := models.Document{
+		ID:      uuid.New(),
 		Title:   input.Title,
 		Content: "",
 		OwnerID: userID,
 	}
-
-	// Optionally link to a board
 	if input.LinkedBoardID != nil && *input.LinkedBoardID != "" {
-		bid, err := uuid.Parse(*input.LinkedBoardID)
-		if err == nil {
+		if bid, err := uuid.Parse(*input.LinkedBoardID); err == nil {
 			doc.LinkedBoardID = &bid
 		}
 	}
 
-	if err := database.DB.Create(&doc).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Could not create document: " + err.Error()})
+	_, err = database.DB.Exec(
+		`INSERT INTO documents (id, title, content, owner_id, linked_board_id, linked_task_id)
+		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		doc.ID, doc.Title, doc.Content, doc.OwnerID, doc.LinkedBoardID, doc.LinkedTaskID,
+	)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not create document: " + err.Error()})
 	}
-	return c.Status(201).JSON(doc)
+	return c.Status(fiber.StatusCreated).JSON(doc)
 }
 
-// GetAllDocuments: List all documents for the authenticated user (owned + shared)
+// ─── GET ALL DOCUMENTS ────────────────────────────────────────────────────────
+
 func GetAllDocuments(c *fiber.Ctx) error {
-	userIDStr, ok := c.Locals("userID").(string)
-	if !ok {
-		return c.Status(401).JSON(fiber.Map{"error": "Unauthorized"})
-	}
+	userIDStr, _ := c.Locals("userID").(string)
 	userID, _ := uuid.Parse(userIDStr)
 	adminIDStr, role, email := getAdminContext(c)
 
 	var docs []models.Document
 	seen := map[uuid.UUID]bool{}
-	
+
 	// 1. Owned
-	var ownDocs []models.Document
-	database.DB.Where("owner_id = ?", userID).Order("updated_at desc").Find(&ownDocs)
-	for _, d := range ownDocs {
+	var owned []models.Document
+	database.DB.Select(&owned, "SELECT * FROM documents WHERE owner_id = $1 ORDER BY updated_at DESC", userID)
+	for _, d := range owned {
 		docs = append(docs, d)
 		seen[d.ID] = true
 	}
 
 	// 2. Shared via DocAccess
 	var accesses []models.DocAccess
-	database.DB.Where("target_email = ?", email).Find(&accesses)
-	
-	var sharedIDs []uuid.UUID
+	database.DB.Select(&accesses, "SELECT * FROM doc_accesses WHERE target_email = $1", email)
+	var sharedIDs []interface{}
 	for _, a := range accesses {
-		sharedIDs = append(sharedIDs, a.DocID)
+		if !seen[a.DocID] {
+			sharedIDs = append(sharedIDs, a.DocID)
+		}
 	}
-
 	if len(sharedIDs) > 0 {
-		var sharedDocs []models.Document
-		database.DB.Where("id IN ?", sharedIDs).Order("updated_at desc").Find(&sharedDocs)
-		for _, d := range sharedDocs {
+		q, args, _ := sqlx.In("SELECT * FROM documents WHERE id IN (?) ORDER BY updated_at DESC", sharedIDs)
+		q = database.DB.Rebind(q)
+		var shared []models.Document
+		database.DB.Select(&shared, q, args...)
+		for _, d := range shared {
 			if !seen[d.ID] {
 				docs = append(docs, d)
 				seen[d.ID] = true
@@ -93,21 +99,23 @@ func GetAllDocuments(c *fiber.Ctx) error {
 		}
 	}
 
-	// 4. Assigned Task docs (for members)
-	// NOTE: Admin-owned docs are NOT automatically shown to members.
-	// Members only see docs they own (step 1) or docs explicitly shared (step 2).
+	// 3. Member task-linked docs
 	if role == "member" {
 		var member models.TeamMember
-		if err := database.DB.Where("email = ?", email).First(&member).Error; err == nil {
+		if err := database.DB.Get(&member, "SELECT * FROM team_members WHERE email = $1 AND deleted_at IS NULL LIMIT 1", email); err == nil {
 			var taskIDs []uint
-			database.DB.Model(&models.Task{}).
-				Where("user_id = ? AND (assignees LIKE ? OR assignees LIKE ?)",
-					adminIDStr, "%"+member.Name+"%", "%"+member.Initials+"%").
-				Pluck("id", &taskIDs)
-
+			database.DB.Select(&taskIDs,
+				"SELECT id FROM tasks WHERE user_id=$1 AND (assignees LIKE $2 OR assignees LIKE $3) AND deleted_at IS NULL",
+				adminIDStr, "%"+member.Name+"%", "%"+member.Initials+"%")
 			if len(taskIDs) > 0 {
+				args := make([]interface{}, len(taskIDs))
+				for i, tid := range taskIDs {
+					args[i] = tid
+				}
+				q, a, _ := sqlx.In("SELECT * FROM documents WHERE linked_task_id IN (?)", args)
+				q = database.DB.Rebind(q)
 				var taskDocs []models.Document
-				database.DB.Where("linked_task_id IN ?", taskIDs).Find(&taskDocs)
+				database.DB.Select(&taskDocs, q, a...)
 				for _, d := range taskDocs {
 					if !seen[d.ID] {
 						docs = append(docs, d)
@@ -115,29 +123,25 @@ func GetAllDocuments(c *fiber.Ctx) error {
 					}
 				}
 			}
-			// Admin-owned docs are NOT added here. Members only see their own
-			// docs and docs the admin explicitly shared with them.
 		}
 	}
 
-	// 5. Admin pool view (Admins see everything in their workspace)
+	// 4. Admin workspace pool
 	if role == "admin" {
 		adminID, _ := uuid.Parse(adminIDStr)
 		var memberIDs []uuid.UUID
-		database.DB.Table("users").
-			Select("users.id").
-			Joins("inner join team_members on team_members.email = users.email").
-			Where("team_members.user_id = ?", adminIDStr).
-			Find(&memberIDs)
-
-		var adminPoolDocs []models.Document
-		query := database.DB.Where("owner_id = ?", adminID)
+		database.DB.Select(&memberIDs,
+			"SELECT u.id FROM users u INNER JOIN team_members tm ON tm.email = u.email WHERE tm.user_id = $1 AND tm.deleted_at IS NULL",
+			adminIDStr)
+		var pool []models.Document
 		if len(memberIDs) > 0 {
-			query = database.DB.Where("owner_id = ? OR owner_id IN ?", adminID, memberIDs)
+			q, args, _ := sqlx.In("SELECT * FROM documents WHERE owner_id = ? OR owner_id IN (?) ORDER BY updated_at DESC", adminID, memberIDs)
+			q = database.DB.Rebind(q)
+			database.DB.Select(&pool, q, args...)
+		} else {
+			database.DB.Select(&pool, "SELECT * FROM documents WHERE owner_id = $1 ORDER BY updated_at DESC", adminID)
 		}
-		query.Order("updated_at desc").Find(&adminPoolDocs)
-
-		for _, d := range adminPoolDocs {
+		for _, d := range pool {
 			if !seen[d.ID] {
 				docs = append(docs, d)
 				seen[d.ID] = true
@@ -145,137 +149,117 @@ func GetAllDocuments(c *fiber.Ctx) error {
 		}
 	}
 
+	if docs == nil {
+		docs = []models.Document{}
+	}
 	return c.JSON(docs)
 }
 
-// GetDocument: Get a single document by ID (owned or shared)
+// ─── GET DOCUMENT ─────────────────────────────────────────────────────────────
+
 func GetDocument(c *fiber.Ctx) error {
-	userIDStr := c.Locals("userID").(string)
+	userIDStr, _ := c.Locals("userID").(string)
 	userID, _ := uuid.Parse(userIDStr)
 	adminIDStr, role, email := getAdminContext(c)
 	docID := c.Params("id")
-	parsedDocID, _ := uuid.Parse(docID)
+	parsedID, _ := uuid.Parse(docID)
 
 	var doc models.Document
-	permission := "viewer"
 
 	// 1. Owned
-	err := database.DB.Where("id = ? AND owner_id = ?", docID, userID).First(&doc).Error
-	if err == nil {
-		permission = "editor"
-		return c.JSON(fiber.Map{
-			"doc":        doc,
-			"permission": permission,
-		})
+	if err := database.DB.Get(&doc, "SELECT * FROM documents WHERE id = $1 AND owner_id = $2 LIMIT 1", parsedID, userID); err == nil {
+		return c.JSON(fiber.Map{"doc": doc, "permission": "editor"})
 	}
 
-	// 2. Task assignment check (for members)
+	// 2. Member task-linked
 	if role == "member" {
 		var member models.TeamMember
-		database.DB.Where("email = ?", email).First(&member)
+		database.DB.Get(&member, "SELECT * FROM team_members WHERE email = $1 AND deleted_at IS NULL LIMIT 1", email)
 		var task models.Task
-		// Check for task assigned to this member that is linked to this doc
-		// Note: doc.LinkedTaskID is uint, task.ID is uint
-		errT := database.DB.Where("user_id = ? AND (assignees LIKE ? OR assignees LIKE ?)",
-			adminIDStr, "%"+member.Name+"%", "%"+member.Initials+"%").
-			Joins("inner join documents on documents.linked_task_id = tasks.id").
-			Where("documents.id = ?", docID).First(&task).Error
-		if errT == nil {
-			if err2 := database.DB.Where("id = ?", docID).First(&doc).Error; err2 == nil {
-				permission = "editor"
-				return c.JSON(fiber.Map{
-					"doc":        doc,
-					"permission": permission,
-				})
+		err := database.DB.Get(&task,
+			`SELECT t.* FROM tasks t
+			 INNER JOIN documents d ON d.linked_task_id = t.id
+			 WHERE t.user_id=$1 AND (t.assignees LIKE $2 OR t.assignees LIKE $3) AND d.id=$4 AND t.deleted_at IS NULL LIMIT 1`,
+			adminIDStr, "%"+member.Name+"%", "%"+member.Initials+"%", parsedID,
+		)
+		if err == nil {
+			if err2 := database.DB.Get(&doc, "SELECT * FROM documents WHERE id = $1 LIMIT 1", parsedID); err2 == nil {
+				return c.JSON(fiber.Map{"doc": doc, "permission": "editor"})
 			}
 		}
 	}
 
-	// 3. Shared
+	// 3. Shared via DocAccess
 	var access models.DocAccess
-	err = database.DB.Where("doc_id = ? AND target_email = ?", parsedDocID, email).First(&access).Error
-	if err == nil {
-		if err2 := database.DB.Where("id = ?", docID).First(&doc).Error; err2 == nil {
-			permission = access.Permission
-			return c.JSON(fiber.Map{
-				"doc":        doc,
-				"permission": permission,
-			})
+	if err := database.DB.Get(&access,
+		"SELECT * FROM doc_accesses WHERE doc_id = $1 AND target_email = $2 LIMIT 1", parsedID, email,
+	); err == nil {
+		if err2 := database.DB.Get(&doc, "SELECT * FROM documents WHERE id = $1 LIMIT 1", parsedID); err2 == nil {
+			return c.JSON(fiber.Map{"doc": doc, "permission": access.Permission})
 		}
 	}
 
+	// 4. Admin fallback
 	if role == "admin" {
 		adminID, _ := uuid.Parse(adminIDStr)
-		if err := database.DB.Where("id = ? AND owner_id = ?", docID, adminID).First(&doc).Error; err == nil {
-			permission = "editor"
-			return c.JSON(fiber.Map{
-				"doc":        doc,
-				"permission": permission,
-			})
-		} else {
-			// Check if the owner is a team member managed by this admin
-			var memberIDs []uuid.UUID
-			database.DB.Table("users").
-				Select("users.id").
-				Joins("inner join team_members on team_members.email = users.email").
-				Where("team_members.user_id = ?", adminIDStr).
-				Find(&memberIDs)
-			
-			if len(memberIDs) > 0 {
-				if err := database.DB.Where("id = ? AND owner_id IN ?", docID, memberIDs).First(&doc).Error; err == nil {
-					permission = "editor"
-					return c.JSON(fiber.Map{
-						"doc":        doc,
-						"permission": permission,
-					})
-				}
+		if err := database.DB.Get(&doc, "SELECT * FROM documents WHERE id = $1 AND owner_id = $2 LIMIT 1", parsedID, adminID); err == nil {
+			return c.JSON(fiber.Map{"doc": doc, "permission": "editor"})
+		}
+		var memberIDs []uuid.UUID
+		database.DB.Select(&memberIDs,
+			"SELECT u.id FROM users u INNER JOIN team_members tm ON tm.email = u.email WHERE tm.user_id = $1 AND tm.deleted_at IS NULL",
+			adminIDStr)
+		if len(memberIDs) > 0 {
+			q, args, _ := sqlx.In("SELECT * FROM documents WHERE id = ? AND owner_id IN (?) LIMIT 1", parsedID, memberIDs)
+			q = database.DB.Rebind(q)
+			if err := database.DB.Get(&doc, q, args...); err == nil {
+				return c.JSON(fiber.Map{"doc": doc, "permission": "editor"})
 			}
 		}
 	}
 
-	return c.Status(404).JSON(fiber.Map{"error": "Document not found"})
+	return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Document not found"})
 }
 
-// UpdateDocument: Save document content + title (owned or shared)
+// ─── UPDATE DOCUMENT ──────────────────────────────────────────────────────────
+
 func UpdateDocument(c *fiber.Ctx) error {
-	userIDStr := c.Locals("userID").(string)
+	userIDStr, _ := c.Locals("userID").(string)
 	userID, _ := uuid.Parse(userIDStr)
 	adminIDStr, role, email := getAdminContext(c)
 	docID := c.Params("id")
-	parsedDocID, _ := uuid.Parse(docID)
+	parsedID, _ := uuid.Parse(docID)
 
 	var doc models.Document
-	var canEdit bool = false
+	canEdit := false
 
-	// Check eligibility
 	if role == "admin" {
 		adminID, _ := uuid.Parse(adminIDStr)
-		if err := database.DB.Where("id = ? AND owner_id = ?", docID, adminID).First(&doc).Error; err == nil {
+		if err := database.DB.Get(&doc, "SELECT * FROM documents WHERE id = $1 AND owner_id = $2 LIMIT 1", parsedID, adminID); err == nil {
 			canEdit = true
 		} else {
-			// Check if the owner is a team member managed by this admin
 			var memberIDs []uuid.UUID
-			database.DB.Table("users").
-				Select("users.id").
-				Joins("inner join team_members on team_members.email = users.email").
-				Where("team_members.user_id = ?", adminIDStr).
-				Find(&memberIDs)
-			
+			database.DB.Select(&memberIDs,
+				"SELECT u.id FROM users u INNER JOIN team_members tm ON tm.email = u.email WHERE tm.user_id = $1 AND tm.deleted_at IS NULL",
+				adminIDStr)
 			if len(memberIDs) > 0 {
-				if err := database.DB.Where("id = ? AND owner_id IN ?", docID, memberIDs).First(&doc).Error; err == nil {
+				q, args, _ := sqlx.In("SELECT * FROM documents WHERE id = ? AND owner_id IN (?) LIMIT 1", parsedID, memberIDs)
+				q = database.DB.Rebind(q)
+				if err := database.DB.Get(&doc, q, args...); err == nil {
 					canEdit = true
 				}
 			}
 		}
 	} else {
-		// Owned
-		if err := database.DB.Where("id = ? AND owner_id = ?", docID, userID).First(&doc).Error; err == nil {
+		if err := database.DB.Get(&doc, "SELECT * FROM documents WHERE id = $1 AND owner_id = $2 LIMIT 1", parsedID, userID); err == nil {
 			canEdit = true
 		} else {
-			// Shared as editor
 			var access models.DocAccess
-			if err2 := database.DB.Where("doc_id = ? AND target_email = ? AND permission = 'editor'", parsedDocID, email).First(&access).Error; err2 == nil {
-				if err3 := database.DB.Where("id = ?", docID).First(&doc).Error; err3 == nil {
+			if err2 := database.DB.Get(&access,
+				"SELECT * FROM doc_accesses WHERE doc_id = $1 AND target_email = $2 AND permission = 'editor' LIMIT 1",
+				parsedID, email,
+			); err2 == nil {
+				if err3 := database.DB.Get(&doc, "SELECT * FROM documents WHERE id = $1 LIMIT 1", parsedID); err3 == nil {
 					canEdit = true
 				}
 			}
@@ -283,7 +267,7 @@ func UpdateDocument(c *fiber.Ctx) error {
 	}
 
 	if !canEdit {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied or read-only mode"})
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied or read-only"})
 	}
 
 	type UpdatePayload struct {
@@ -294,22 +278,18 @@ func UpdateDocument(c *fiber.Ctx) error {
 	}
 	var payload UpdatePayload
 	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid payload"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid payload"})
 	}
 
 	if payload.Title != "" {
 		doc.Title = payload.Title
 	}
 	doc.Content = payload.Content
-
 	if payload.LinkedBoardID != nil {
 		if *payload.LinkedBoardID == "" {
 			doc.LinkedBoardID = nil
-		} else {
-			bid, err := uuid.Parse(*payload.LinkedBoardID)
-			if err == nil {
-				doc.LinkedBoardID = &bid
-			}
+		} else if bid, err := uuid.Parse(*payload.LinkedBoardID); err == nil {
+			doc.LinkedBoardID = &bid
 		}
 	}
 	if payload.LinkedTaskID != nil {
@@ -323,22 +303,25 @@ func UpdateDocument(c *fiber.Ctx) error {
 		}
 	}
 
-	if err := database.DB.Save(&doc).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to save document"})
-	}
+	database.DB.Exec(
+		"UPDATE documents SET title=$1, content=$2, linked_board_id=$3, linked_task_id=$4, updated_at=NOW() WHERE id=$5",
+		doc.Title, doc.Content, doc.LinkedBoardID, doc.LinkedTaskID, doc.ID,
+	)
 	return c.JSON(doc)
 }
 
-// DeleteDocument: Permanently delete a document
+// ─── DELETE DOCUMENT ──────────────────────────────────────────────────────────
+
 func DeleteDocument(c *fiber.Ctx) error {
 	adminIDStr, role, _ := getAdminContext(c)
-	realUserIDStr := c.Locals("userID").(string)
+	realUserIDStr, _ := c.Locals("userID").(string)
 	realUserID, _ := uuid.Parse(realUserIDStr)
 	docID := c.Params("id")
+	parsedID, _ := uuid.Parse(docID)
 
 	var doc models.Document
-	if err := database.DB.Where("id = ?", docID).First(&doc).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "Document not found"})
+	if err := database.DB.Get(&doc, "SELECT * FROM documents WHERE id = $1 LIMIT 1", parsedID); err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Document not found"})
 	}
 
 	canDelete := false
@@ -347,67 +330,65 @@ func DeleteDocument(c *fiber.Ctx) error {
 		if doc.OwnerID == adminID {
 			canDelete = true
 		} else {
-			// Check if owner is a member for this admin
-			var memberCount int64
-			database.DB.Table("team_members").
-				Joins("inner join users on users.email = team_members.email").
-				Where("team_members.user_id = ? AND users.id = ?", adminIDStr, doc.OwnerID).
-				Count(&memberCount)
-			if memberCount > 0 {
-				canDelete = true
-			}
+			var cnt int
+			database.DB.Get(&cnt,
+				"SELECT COUNT(*) FROM team_members tm INNER JOIN users u ON u.email = tm.email WHERE tm.user_id = $1 AND u.id = $2 AND tm.deleted_at IS NULL",
+				adminIDStr, doc.OwnerID)
+			canDelete = cnt > 0
 		}
 	} else if doc.OwnerID == realUserID {
 		canDelete = true
 	}
 
 	if !canDelete {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "You don't have permission to delete this document"})
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Permission denied"})
 	}
 
-	// 1. Delete associated access records
-	database.DB.Where("doc_id = ?", doc.ID).Delete(&models.DocAccess{})
-
-	// 2. Delete the document
-	if err := database.DB.Delete(&doc).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to delete document"})
-	}
+	database.DB.Exec("DELETE FROM doc_accesses WHERE doc_id = $1", doc.ID)
+	database.DB.Exec("DELETE FROM documents WHERE id = $1", doc.ID)
 	return c.JSON(fiber.Map{"message": "Document deleted"})
 }
 
-// GetDocumentsByBoard: Get all documents linked to a specific board (accessible to user)
+// ─── GET DOCS BY BOARD ────────────────────────────────────────────────────────
+
 func GetDocumentsByBoard(c *fiber.Ctx) error {
-	userIDStr := c.Locals("userID").(string)
+	userIDStr, _ := c.Locals("userID").(string)
 	userID, _ := uuid.Parse(userIDStr)
 	_, _, email := getAdminContext(c)
 	boardID := c.Params("boardId")
+	parsedBoardID, _ := uuid.Parse(boardID)
 
 	var docs []models.Document
-	
-	// Owned docs linked to board
-	database.DB.Where("linked_board_id = ? AND owner_id = ?", boardID, userID).Find(&docs)
-	
-	// Shared docs linked to board
-	var sharedAccess []models.DocAccess
-	database.DB.Where("target_email = ?", email).Find(&sharedAccess)
-	
-	var sharedIDs []uuid.UUID
-	for _, a := range sharedAccess {
-		sharedIDs = append(sharedIDs, a.DocID)
+	seen := map[uuid.UUID]bool{}
+
+	database.DB.Select(&docs,
+		"SELECT * FROM documents WHERE linked_board_id = $1 AND owner_id = $2", parsedBoardID, userID)
+	for _, d := range docs {
+		seen[d.ID] = true
 	}
-	
+
+	var accesses []models.DocAccess
+	database.DB.Select(&accesses, "SELECT * FROM doc_accesses WHERE target_email = $1", email)
+	var sharedIDs []interface{}
+	for _, a := range accesses {
+		if !seen[a.DocID] {
+			sharedIDs = append(sharedIDs, a.DocID)
+		}
+	}
 	if len(sharedIDs) > 0 {
-		var sharedDocs []models.Document
-		database.DB.Where("linked_board_id = ? AND id IN ?", boardID, sharedIDs).Find(&sharedDocs)
-		// Simple merge avoiding duplicates
-		seen := map[uuid.UUID]bool{}
-		for _, d := range docs { seen[d.ID] = true }
-		for _, sd := range sharedDocs {
-			if !seen[sd.ID] {
-				docs = append(docs, sd)
+		q, args, _ := sqlx.In("SELECT * FROM documents WHERE linked_board_id = ? AND id IN (?)", parsedBoardID, sharedIDs)
+		q = database.DB.Rebind(q)
+		var shared []models.Document
+		database.DB.Select(&shared, q, args...)
+		for _, d := range shared {
+			if !seen[d.ID] {
+				docs = append(docs, d)
 			}
 		}
 	}
 
+	if docs == nil {
+		docs = []models.Document{}
+	}
 	return c.JSON(docs)
 }

@@ -2,110 +2,105 @@ package controllers
 
 import (
 	"fmt"
+
 	"reecho_media_crm/auth"
 	"reecho_media_crm/database"
 	"reecho_media_crm/models"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
+// Register creates a new admin account.
 func Register(c *fiber.Ctx) error {
-    // Moved inside the function so it's unique per request
 	var input struct {
 		Name     string `json:"name"`
 		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
-
 	if err := c.BodyParser(&input); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
-	// Password Hashing [cite: 101, 232]
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(input.Password), 10)
-
-	user := models.User{
-		Name:     input.Name,
-		Email:    input.Email,
-		Password: string(hashedPassword),
-		Role:     "admin", // Default to admin for main registration
+	hashed, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to hash password"})
 	}
 
-	// GORM will now call BeforeCreate and generate the UUID automatically
-	if err := database.DB.Create(&user).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Email already registered"})
+	_, err = database.DB.Exec(
+		"INSERT INTO users (id, name, email, password, role) VALUES ($1, $2, $3, $4, 'admin')",
+		uuid.New(), input.Name, input.Email, string(hashed),
+	)
+	if err != nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "Email already registered"})
 	}
-
-	return c.Status(201).JSON(fiber.Map{"message": "Registered successfully"})
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"message": "Registered successfully"})
 }
 
+// Login authenticates a user and returns a JWT.
 func Login(c *fiber.Ctx) error {
 	var input struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
-	
 	if err := c.BodyParser(&input); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
 	var user models.User
-	// Find user by email [cite: 107]
-	if err := database.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
-		return c.Status(401).JSON(fiber.Map{"error": "Invalid credentials"})
+	if err := database.DB.Get(&user, "SELECT * FROM users WHERE email = $1", input.Email); err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid credentials"})
 	}
 
-	// Compare bcrypt hash [cite: 107, 232]
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
-		return c.Status(401).JSON(fiber.Map{"error": "Invalid credentials"})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid credentials"})
 	}
 
-	// Generate JWT [cite: 103, 111]
-	token, _ := auth.GenerateJWT(user.ID, user.Role, user.Email)
+	token, err := auth.GenerateJWT(user.ID, user.Role, user.Email)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate token"})
+	}
 
 	return c.JSON(fiber.Map{
-		"token": token, 
+		"token": token,
 		"user": fiber.Map{
-			"id": user.ID,
-			"name": user.Name,
+			"id":    user.ID,
+			"name":  user.Name,
 			"email": user.Email,
-			"role": user.Role,
+			"role":  user.Role,
 		},
 	})
 }
 
+// ChangePassword updates the current user's password.
 func ChangePassword(c *fiber.Ctx) error {
 	var input struct {
 		CurrentPassword string `json:"currentPassword"`
 		NewPassword     string `json:"newPassword"`
 	}
 	if err := c.BodyParser(&input); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
-	emailRaw := c.Locals("email")
-	if emailRaw == nil {
-		return c.Status(401).JSON(fiber.Map{"error": "Unauthorized"})
-	}
-	email := fmt.Sprintf("%v", emailRaw)
+	email := fmt.Sprintf("%v", c.Locals("email"))
 
 	var user models.User
-	if err := database.DB.Where("email = ?", email).First(&user).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "User not found"})
+	if err := database.DB.Get(&user, "SELECT * FROM users WHERE email = $1", email); err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.CurrentPassword)); err != nil {
-		return c.Status(401).JSON(fiber.Map{"error": "Incorrect current password"})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Incorrect current password"})
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), 10)
+	hashed, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to hash password"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to hash password"})
 	}
-	
-	if err := database.DB.Model(&user).Update("password", string(hashedPassword)).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to update database"})
+
+	if _, err := database.DB.Exec("UPDATE users SET password = $1 WHERE email = $2", string(hashed), email); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update password"})
 	}
 
 	return c.JSON(fiber.Map{"message": "Password updated successfully"})

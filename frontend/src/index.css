@@ -693,3 +693,97 @@ body {
 .hb-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin-bottom: 6px; }
 .hb-value { font-family: inherit; font-size: 24px; font-weight: 600; }
 .hb-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+/* ─── MOBILE RESPONSIVE ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Top bars */
+  .topbar {
+    padding: 0 14px 0 56px; /* leave room for hamburger */
+    height: auto;
+    min-height: 56px;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .topbar-left  { gap: 8px; flex-wrap: wrap; }
+  .topbar-right { gap: 6px; flex-wrap: wrap; }
+  .page-title   { font-size: 15px; }
+
+  /* Content area */
+  .content-area-main {
+    padding: 14px 14px;
+    height: calc(100dvh - 56px);
+  }
+
+  /* Stats: 2 columns on mobile */
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .stat-value { font-size: 22px; }
+
+  /* Two/three col layouts: stack on mobile */
+  .two-col   { grid-template-columns: 1fr; gap: 12px; }
+  .three-col { grid-template-columns: 1fr; gap: 12px; }
+  .main-aside { grid-template-columns: 1fr; gap: 12px; }
+
+  /* Kanban: horizontal scroll on mobile */
+  .kanban-board {
+    grid-template-columns: repeat(4, 260px);
+    overflow-x: auto;
+    padding-bottom: 8px;
+    gap: 10px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Team grid: 1 col on mobile */
+  .team-grid { grid-template-columns: 1fr; gap: 12px; }
+
+  /* Calendar: compact */
+  .calendar-grid { gap: 3px; }
+  .cal-day       { min-height: 56px; padding: 4px; }
+  .cal-date      { font-size: 10px; }
+  .cal-post      { font-size: 8px; padding: 2px 3px; }
+  .cal-day-header { font-size: 8px; letter-spacing: 0; padding-bottom: 4px; }
+
+  /* Client / invoice row: hide secondary cols, show only first 2 */
+  .client-row {
+    grid-template-columns: 2fr 1fr;
+    gap: 6px;
+    padding: 10px 12px;
+  }
+  .client-row > *:nth-child(n+3) { display: none; }
+  .client-row.header > *:nth-child(n+3) { display: none; }
+
+  .invoice-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    padding: 10px 12px;
+    font-size: 11px;
+  }
+  .invoice-row > *:nth-child(n+3) { display: none; }
+  .invoice-row.header > *:nth-child(n+3) { display: none; }
+
+  /* Portal header: stack */
+  .portal-header { flex-direction: column; align-items: flex-start; gap: 12px; padding: 16px; }
+  .portal-meta   { text-align: left; }
+
+  /* Pipeline: compact text */
+  .pipeline-steps { padding: 12px 4px; gap: 0; overflow-x: auto; }
+  .step-label     { font-size: 9px; }
+
+  /* Buttons */
+  .btn { padding: 6px 12px; font-size: 12px; }
+}
+
+/* Tablet (md breakpoint 768-1024) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .stats-grid   { grid-template-columns: repeat(2, 1fr); }
+  .main-aside   { grid-template-columns: 1fr; }
+  .three-col    { grid-template-columns: 1fr 1fr; }
+  .team-grid    { grid-template-columns: repeat(2, 1fr); }
+  .kanban-board { grid-template-columns: repeat(2, 1fr); overflow-x: auto; }
+  .content-area-main { padding: 20px 20px; }
+}

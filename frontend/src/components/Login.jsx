@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_BASE } from '../api';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -25,11 +26,7 @@ const Login = () => {
     e.preventDefault();
     try {
 
-      const response = await axios.post('https://api.reechomedia.com/login', {
-
-        email,
-        password
-      });
+      const response = await axios.post(`${API_BASE}/login`, { email, password });
 
       if (response.data.token) {
         localStorage.setItem('token', response.data.token);

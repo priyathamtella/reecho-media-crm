@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 
-const API = "https://api.reechomedia.com/api";
+import { API } from "../api";
 
 
 const PLATFORM_COLORS = {
@@ -1538,3 +1538,4 @@ export default function CrmView({ currentPage, setCurrentPage }) {
     </div>
   );
 }
+

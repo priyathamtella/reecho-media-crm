@@ -6,240 +6,232 @@ import (
 	"fmt"
 	"net/smtp"
 	"os"
-	"reecho_media_crm/database"
-	"reecho_media_crm/models"
 	"strings"
 
+	"reecho_media_crm/database"
+	"reecho_media_crm/models"
+
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"golang.org/x/crypto/bcrypt"
 )
 
-func generateRandomPassword() string {
-	bytes := make([]byte, 8)
-	if _, err := rand.Read(bytes); err != nil {
-		return "DefaultPass123!" // Fallback
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+func randomPassword() string {
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		return "DefaultPass123!"
 	}
-	return hex.EncodeToString(bytes)
+	return hex.EncodeToString(b)
 }
 
-// sendEmail is a generic helper that sends an email via SMTP
-func sendEmail(toEmail, subject, body string) {
-	smtpHost := os.Getenv("SMTP_HOST")
-	smtpPort := os.Getenv("SMTP_PORT")
-	fromEmail := os.Getenv("SMTP_EMAIL")
-	fromPass := os.Getenv("SMTP_PASSWORD")
-	if smtpHost == "" || fromEmail == "" || fromPass == "" {
-		fmt.Println("[Email] SMTP not configured — skipping email")
+func sendEmail(to, subject, body string) {
+	host := os.Getenv("SMTP_HOST")
+	port := os.Getenv("SMTP_PORT")
+	from := os.Getenv("SMTP_EMAIL")
+	pass := os.Getenv("SMTP_PASSWORD")
+	if host == "" || from == "" || pass == "" {
+		fmt.Println("[Email] SMTP not configured — skipping")
 		return
 	}
-	// Use display name 'Reecho Media'
-	msg := fmt.Sprintf("From: Reecho Media <%s>\r\nTo: %s\r\nSubject: %s\r\nMIME-version: 1.0\r\nContent-Type: text/plain; charset=\"UTF-8\"\r\n\r\n%s",
-		fromEmail, toEmail, subject, body)
-	auth := smtp.PlainAuth("", fromEmail, fromPass, smtpHost)
-	err := smtp.SendMail(smtpHost+":"+smtpPort, auth, fromEmail, []string{toEmail}, []byte(msg))
+	msg := fmt.Sprintf(
+		"From: Reecho Media <%s>\r\nTo: %s\r\nSubject: %s\r\nMIME-version: 1.0\r\nContent-Type: text/plain; charset=\"UTF-8\"\r\n\r\n%s",
+		from, to, subject, body,
+	)
+	err := smtp.SendMail(host+":"+port, smtp.PlainAuth("", from, pass, host), from, []string{to}, []byte(msg))
 	if err != nil {
-		fmt.Printf("[Email] Failed: %v\n", err)
-	} else {
-		fmt.Printf("[Email] Sent to %s\n", toEmail)
+		fmt.Printf("[Email] Failed to send to %s: %v\n", to, err)
 	}
 }
 
-func sendInviteEmail(toEmail, toName, role, password string) {
-    subject := "You've been invited to join Reecho Media CRM"
-    body := fmt.Sprintf(`Hi %s,
-
-You have been invited to join the Reecho Media team as a %s.
-
-You can now log in to the portal.
-Email: %s
-Password: %s
-Login Portal: https://reechomedia.com/login
-
-Welcome aboard!
-
-— Reecho Media Team`, toName, role, toEmail, password)
-    sendEmail(toEmail, subject, body)
+func notifyEmail() string {
+	if e := os.Getenv("ADMIN_NOTIFY_EMAIL"); e != "" {
+		return e
+	}
+	return os.Getenv("SMTP_EMAIL")
 }
 
-// sendClientWelcomeEmail sends a congratulations email to a new client
-func sendClientWelcomeEmail(toEmail, clientName, pkg, password string) {
-	subject := fmt.Sprintf("🎉 Welcome to Reecho Media, %s!", clientName)
-	body := fmt.Sprintf(`Hi %s,
-
-Congratulations — you are now officially teamed up with Reecho Media!
-
-We've set up a dedicated Client Hub for you to track progress.
-Email: %s
-Password: %s
-Login Portal: https://reechomedia.com/login
-
-Your package: %s
-
-Our team will be in touch shortly to kick things off.
-
-Here's to great work together! 🚀
-
-— Reecho Media Team`, clientName, toEmail, password, pkg)
-	sendEmail(toEmail, subject, body)
+// getUserIDStr extracts the raw userID string from the JWT context.
+func getUserIDStr(c *fiber.Ctx) string {
+	if raw := c.Locals("userID"); raw != nil {
+		return fmt.Sprintf("%v", raw)
+	}
+	return ""
 }
 
-// Helper: extract userID string from JWT locals
-func getUserID(c *fiber.Ctx) string {
-	raw := c.Locals("userID")
-	if raw == nil {
-		return ""
-	}
-	return fmt.Sprintf("%v", raw)
-}
+// getAdminContext returns (adminUserID, role, email).
+// For clients and members it resolves their parent admin's user_id so every
+// query can use a single owner scope.
+func getAdminContext(c *fiber.Ctx) (adminID, role, email string) {
+	rawID := c.Locals("userID")
+	rawRole := c.Locals("role")
+	rawEmail := c.Locals("email")
 
-// Helper: get context for role-based scoping
-func getAdminContext(c *fiber.Ctx) (string, string, string) {
-	userID := getUserID(c)
-	roleRaw := c.Locals("role")
-	role := "admin"
-	if roleRaw != nil {
-		role = fmt.Sprintf("%v", roleRaw)
+	adminID = fmt.Sprintf("%v", rawID)
+	role = "admin"
+	if rawRole != nil {
+		role = fmt.Sprintf("%v", rawRole)
 	}
-	emailRaw := c.Locals("email")
-	email := ""
-	if emailRaw != nil {
-		email = fmt.Sprintf("%v", emailRaw)
+	email = ""
+	if rawEmail != nil {
+		email = fmt.Sprintf("%v", rawEmail)
 	}
 
-	fmt.Printf("[Debug] Context - UserID: %s, Role: %s, Email: %s\n", userID, role, email)
-
-	if userID == "" || email == "" {
-		return userID, role, email
-	}
-
-	if role == "client" {
+	switch role {
+	case "client":
 		var client models.Client
-		if err := database.DB.Where("email = ?", email).First(&client).Error; err == nil {
-			fmt.Printf("[Debug] Client Role - Parent UserID: %s\n", client.UserID)
-			return client.UserID, role, email
-		} else {
-			fmt.Printf("[Debug] Client lookup failed for email: %s, Error: %v\n", email, err)
+		if err := database.DB.Get(&client, "SELECT * FROM clients WHERE email = $1 AND deleted_at IS NULL LIMIT 1", email); err == nil {
+			adminID = client.UserID
 		}
-	} else if role == "member" {
+	case "member":
 		var member models.TeamMember
-		if err := database.DB.Where("email = ?", email).First(&member).Error; err == nil {
-			fmt.Printf("[Debug] Member Role - Parent UserID: %s\n", member.UserID)
-			return member.UserID, role, email
-		} else {
-			fmt.Printf("[Debug] Member lookup failed for email: %s, Error: %v\n", email, err)
+		if err := database.DB.Get(&member, "SELECT * FROM team_members WHERE email = $1 AND deleted_at IS NULL LIMIT 1", email); err == nil {
+			adminID = member.UserID
 		}
 	}
-	return userID, role, email
+	return
 }
 
-// --- CLIENTS ---
+// ─── CLIENTS ──────────────────────────────────────────────────────────────────
+
 func GetClients(c *fiber.Ctx) error {
 	adminID, role, email := getAdminContext(c)
 	var clients []models.Client
 
-	if role == "client" {
-		database.DB.Where("email = ?", email).Find(&clients)
-	} else if role == "member" {
-		// Filter clients that have tasks assigned to this member
-		var member models.TeamMember
-		database.DB.Where("email = ?", email).First(&member)
-
+	switch role {
+	case "client":
+		database.DB.Select(&clients,
+			"SELECT * FROM clients WHERE email = $1 AND deleted_at IS NULL", email)
+	case "member":
 		var clientNames []string
-		database.DB.Model(&models.Task{}).
-			Where("user_id = ? AND (assignees LIKE ? OR assignees LIKE ?)",
-				adminID, "%"+member.Name+"%", "%"+member.Initials+"%").
-			Distinct("client").
-			Pluck("client", &clientNames)
-
-		database.DB.Where("user_id = ? AND name IN ?", adminID, clientNames).Find(&clients)
-	} else {
-		// Admin sees all clients
-		database.DB.Where("user_id = ?", adminID).Find(&clients)
+		database.DB.Select(&clientNames,
+			"SELECT DISTINCT client FROM tasks WHERE user_id = $1 AND (assignees LIKE $2 OR assignees LIKE $3) AND deleted_at IS NULL",
+			adminID, "%"+email+"%", "%"+email+"%")
+		if len(clientNames) > 0 {
+			query, args, _ := buildIN("SELECT * FROM clients WHERE user_id = ? AND name IN (?) AND deleted_at IS NULL", adminID, clientNames)
+			database.DB.Select(&clients, query, args...)
+		}
+	default:
+		database.DB.Select(&clients,
+			"SELECT * FROM clients WHERE user_id = $1 AND deleted_at IS NULL", adminID)
 	}
 	return c.JSON(clients)
 }
 
 func CreateClient(c *fiber.Ctx) error {
-	client := new(models.Client)
-	if err := c.BodyParser(client); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
-	}
 	adminID, _, _ := getAdminContext(c)
-	client.UserID = adminID
-	if err := database.DB.Create(&client).Error; err != nil {
-		fmt.Printf("[Debug] Failed to create client: %v\n", err)
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to create client in database"})
+
+	var input models.Client
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
-	fmt.Printf("[Debug] Client created: %s (ID: %d)\n", client.Name, client.ID)
+	input.UserID = adminID
 
-	// Default random pass
-	password := generateRandomPassword()
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), 10)
-
-	// Send welcome email to client if email provided
-	if client.Email != "" {
-		// Create login user for client
-		user := models.User{
-			Name:     client.Name,
-			Email:    client.Email,
-			Password: string(hashedPassword),
-			Role:     "client",
-		}
-		// If email is not unique, this might fail, but we ignore the error for now as it's best effort
-		database.DB.Create(&user)
-
-		go sendClientWelcomeEmail(client.Email, client.Name, client.Package, password)
+	var id uint
+	err := database.DB.QueryRow(
+		`INSERT INTO clients (user_id, name, email, industry, package, status, monthly_value, initials, color)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+		input.UserID, input.Name, input.Email, input.Industry, input.Package,
+		input.Status, input.MonthlyValue, input.Initials, input.Color,
+	).Scan(&id)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create client"})
 	}
-	return c.JSON(client)
+	input.ID = id
+
+	if input.Email != "" {
+		pw := randomPassword()
+		hashed, _ := bcrypt.GenerateFromPassword([]byte(pw), bcrypt.DefaultCost)
+		database.DB.Exec(
+			"INSERT INTO users (id, name, email, password, role) VALUES ($1,$2,$3,$4,'client') ON CONFLICT (email) DO NOTHING",
+			uuid.New(), input.Name, input.Email, string(hashed),
+		)
+		go sendClientWelcomeEmail(input.Email, input.Name, input.Package, pw)
+	}
+	return c.Status(fiber.StatusCreated).JSON(input)
+}
+
+func sendClientWelcomeEmail(to, name, pkg, pw string) {
+	subject := fmt.Sprintf("🎉 Welcome to Reecho Media, %s!", name)
+	body := fmt.Sprintf(`Hi %s,
+
+Congratulations — you're now officially teamed up with Reecho Media!
+
+Your client portal credentials:
+Email: %s
+Password: %s
+Login: https://reechomedia.com/login
+
+Package: %s
+
+Our team will be in touch shortly. Here's to great work together! 🚀
+
+— Reecho Media Team`, name, to, pw, pkg)
+	sendEmail(to, subject, body)
 }
 
 func DeleteClient(c *fiber.Ctx) error {
 	id := c.Params("id")
-	userID := getUserID(c)
-	database.DB.Where("id = ? AND user_id = ?", id, userID).Delete(&models.Client{})
+	adminID := getUserIDStr(c)
+	database.DB.Exec(
+		"UPDATE clients SET deleted_at = NOW() WHERE id = $1 AND user_id = $2", id, adminID)
 	return c.JSON(fiber.Map{"message": "Client deleted"})
 }
 
-// --- TASKS ---
+// ─── TASKS ────────────────────────────────────────────────────────────────────
+
 func GetTasks(c *fiber.Ctx) error {
 	adminID, role, email := getAdminContext(c)
 	var tasks []models.Task
 
-	if role == "client" {
+	switch role {
+	case "client":
 		var client models.Client
-		if err := database.DB.Where("email = ?", email).First(&client).Error; err != nil {
+		if err := database.DB.Get(&client, "SELECT * FROM clients WHERE email = $1 AND deleted_at IS NULL LIMIT 1", email); err != nil {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Client profile not found"})
 		}
-		// Clients see all tasks for their own name
-		database.DB.Where("user_id = ? AND client = ?", adminID, client.Name).Find(&tasks)
-	} else if role == "member" {
+		database.DB.Select(&tasks,
+			"SELECT * FROM tasks WHERE user_id = $1 AND client = $2 AND deleted_at IS NULL", adminID, client.Name)
+	case "member":
 		var member models.TeamMember
-		if err := database.DB.Where("email = ?", email).First(&member).Error; err != nil {
+		if err := database.DB.Get(&member, "SELECT * FROM team_members WHERE email = $1 AND deleted_at IS NULL LIMIT 1", email); err != nil {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Member profile not found"})
 		}
-		// Match by name or initials in the comma-separated assignees string
-		database.DB.Where("user_id = ? AND (assignees LIKE ? OR assignees LIKE ?)",
-			adminID, "%"+member.Name+"%", "%"+member.Initials+"%").Find(&tasks)
-	} else {
-		database.DB.Where("user_id = ?", adminID).Find(&tasks)
+		database.DB.Select(&tasks,
+			"SELECT * FROM tasks WHERE user_id = $1 AND (assignees LIKE $2 OR assignees LIKE $3) AND deleted_at IS NULL",
+			adminID, "%"+member.Name+"%", "%"+member.Initials+"%")
+	default:
+		database.DB.Select(&tasks,
+			"SELECT * FROM tasks WHERE user_id = $1 AND deleted_at IS NULL", adminID)
 	}
-
 	return c.JSON(tasks)
 }
 
 func CreateTask(c *fiber.Ctx) error {
-	_, role, _ := getAdminContext(c)
+	adminID, role, _ := getAdminContext(c)
 	if role != "admin" {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can create tasks"})
 	}
-
-	task := new(models.Task)
-	if err := c.BodyParser(task); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
+	var input models.Task
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
-	task.UserID = getUserID(c)
-	database.DB.Create(&task)
-	return c.JSON(task)
+
+	var id uint
+	err := database.DB.QueryRow(
+		`INSERT INTO tasks (user_id, client, title, tag, status, due_date, assignees, linked_board_id, linked_doc_id)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+		adminID, input.Client, input.Title, input.Tag, input.Status,
+		input.DueDate, input.Assignees, input.LinkedBoardID, input.LinkedDocID,
+	).Scan(&id)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create task"})
+	}
+	input.ID = id
+	input.UserID = adminID
+	return c.Status(fiber.StatusCreated).JSON(input)
 }
 
 func UpdateTask(c *fiber.Ctx) error {
@@ -247,63 +239,56 @@ func UpdateTask(c *fiber.Ctx) error {
 	adminID, role, email := getAdminContext(c)
 
 	var task models.Task
-	if err := database.DB.Where("id = ? AND user_id = ?", id, adminID).First(&task).Error; err != nil {
+	if err := database.DB.Get(&task, "SELECT * FROM tasks WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL", id, adminID); err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Task not found"})
 	}
 
 	if role == "member" {
-		// Verify if assigned to this member
 		var member models.TeamMember
-		database.DB.Where("email = ?", email).First(&member)
+		database.DB.Get(&member, "SELECT * FROM team_members WHERE email = $1 AND deleted_at IS NULL LIMIT 1", email)
 
-		isAssigned := false
-		if task.Assignees != "" {
-			for _, a := range models.SplitAssignees(task.Assignees) {
-				if a == member.Name || a == member.Initials {
-					isAssigned = true
-					break
-				}
+		assigned := false
+		for _, a := range models.SplitAssignees(task.Assignees) {
+			if a == member.Name || a == member.Initials {
+				assigned = true
+				break
 			}
 		}
-
-		if !isAssigned {
+		if !assigned {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied"})
 		}
 
-		// Members can update Status and Links
-		type MemberUpdate struct {
+		var mu struct {
 			Status        string `json:"status"`
 			LinkedBoardID string `json:"linkedBoardId"`
 			LinkedDocID   string `json:"linkedDocId"`
 		}
-		var mu MemberUpdate
 		if err := c.BodyParser(&mu); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 		}
-		
+		allowed := map[string]bool{"To Do": true, "In Progress": true, "In Review": true}
+		if mu.Status != "" && !allowed[mu.Status] {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Members can only set status to 'To Do', 'In Progress', or 'In Review'"})
+		}
+		if mu.Status == "In Review" && task.Status != "In Review" {
+			go sendEmail(notifyEmail(),
+				fmt.Sprintf("🧐 Task Review Request: %s", task.Title),
+				fmt.Sprintf("Hey Admin,\n\n%s has completed a task and requested a review:\n\n📌 Task: %s\n🏢 Client: %s\n\n— Reecho Media CRM", member.Name, task.Title, task.Client),
+			)
+		}
 		if mu.Status != "" {
-			// Restriction: Members can only move to "To Do" or "In Progress" or "In Review"
-			if mu.Status != "To Do" && mu.Status != "In Progress" && mu.Status != "In Review" {
-				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Members can only set status to 'To Do', 'In Progress', or 'In Review'."})
-			}
-			
-			// If moving to In Review, notify admin
-			if mu.Status == "In Review" && task.Status != "In Review" {
-				subject := fmt.Sprintf("🧐 Task Review Request: %s", task.Title)
-				body := fmt.Sprintf("Hey Admin,\n\nTeam member %s has completed a task and requested a review:\n\n📌 Task: %s\n🏢 Client: %s\n\nPlease login to the CRM to approve and mark as Done.\n\n— Reecho Media CRM Auto-Notify", member.Name, task.Title, task.Client)
-				go sendEmail("priyathamtella@gmail.com", subject, body)
-			}
 			task.Status = mu.Status
 		}
-
 		if mu.LinkedBoardID != "" {
 			task.LinkedBoardID = mu.LinkedBoardID
 		}
 		if mu.LinkedDocID != "" {
 			task.LinkedDocID = mu.LinkedDocID
 		}
-
-		database.DB.Save(&task)
+		database.DB.Exec(
+			"UPDATE tasks SET status=$1, linked_board_id=$2, linked_doc_id=$3, updated_at=NOW() WHERE id=$4",
+			task.Status, task.LinkedBoardID, task.LinkedDocID, task.ID,
+		)
 		return c.JSON(task)
 	}
 
@@ -311,70 +296,89 @@ func UpdateTask(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Admins only"})
 	}
 
-	// Admin update path
-	if err := c.BodyParser(&task); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
+	var input models.Task
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
-	task.UserID = adminID // Prevent overriding
-	database.DB.Save(&task)
-	return c.JSON(task)
+	database.DB.Exec(
+		`UPDATE tasks SET client=$1, title=$2, tag=$3, status=$4, due_date=$5, assignees=$6,
+		 linked_board_id=$7, linked_doc_id=$8, updated_at=NOW() WHERE id=$9`,
+		input.Client, input.Title, input.Tag, input.Status, input.DueDate,
+		input.Assignees, input.LinkedBoardID, input.LinkedDocID, id,
+	)
+	input.ID = task.ID
+	input.UserID = adminID
+	return c.JSON(input)
 }
 
 func DeleteTask(c *fiber.Ctx) error {
 	id := c.Params("id")
-	userID := getUserID(c)
-	database.DB.Where("id = ? AND user_id = ?", id, userID).Delete(&models.Task{})
+	adminID := getUserIDStr(c)
+	database.DB.Exec("UPDATE tasks SET deleted_at = NOW() WHERE id = $1 AND user_id = $2", id, adminID)
 	return c.JSON(fiber.Map{"message": "Task deleted"})
 }
 
-// --- INVOICES ---
+// ─── INVOICES ─────────────────────────────────────────────────────────────────
+
 func GetInvoices(c *fiber.Ctx) error {
 	adminID, role, email := getAdminContext(c)
 	var invoices []models.Invoice
 
-	if role == "client" {
+	switch role {
+	case "client":
 		var client models.Client
-		database.DB.Where("email = ?", email).First(&client)
-		// Clients see 'client' type invoices addressed to them
-		database.DB.Where("user_id = ? AND client = ? AND type = ?", adminID, client.Name, "client").Find(&invoices)
-	} else if role == "member" {
-		// Members see their own 'payout' requests
-		database.DB.Where("user_id = ? AND sender = ? AND type = ?", adminID, email, "payout").Find(&invoices)
-	} else {
-		// Admin sees all invoices
-		database.DB.Where("user_id = ?", adminID).Find(&invoices)
+		database.DB.Get(&client, "SELECT * FROM clients WHERE email = $1 AND deleted_at IS NULL LIMIT 1", email)
+		database.DB.Select(&invoices,
+			"SELECT * FROM invoices WHERE user_id = $1 AND client = $2 AND type = 'client' AND deleted_at IS NULL",
+			adminID, client.Name)
+	case "member":
+		database.DB.Select(&invoices,
+			"SELECT * FROM invoices WHERE user_id = $1 AND sender = $2 AND type = 'payout' AND deleted_at IS NULL",
+			adminID, email)
+	default:
+		database.DB.Select(&invoices,
+			"SELECT * FROM invoices WHERE user_id = $1 AND deleted_at IS NULL", adminID)
 	}
-
 	return c.JSON(invoices)
 }
 
 func CreateInvoice(c *fiber.Ctx) error {
 	adminID, role, email := getAdminContext(c)
-	inv := new(models.Invoice)
-	if err := c.BodyParser(inv); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
+
+	var input models.Invoice
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
+	input.UserID = adminID
+	input.Sender = email
 
-	inv.UserID = adminID
-	inv.Sender = email
-
-	if role == "member" {
-		inv.Type = "payout"
-		inv.Status = "Pending" // Payouts start as pending
-		// For payouts, 'Client' field stores the member's name
+	switch role {
+	case "member":
 		var member models.TeamMember
-		database.DB.Where("email = ?", email).First(&member)
-		inv.Client = member.Name
-	} else if role == "admin" {
-		if inv.Type == "" {
-			inv.Type = "client"
+		database.DB.Get(&member, "SELECT * FROM team_members WHERE email = $1 AND deleted_at IS NULL LIMIT 1", email)
+		input.Type = "payout"
+		input.Status = "Pending"
+		input.Client = member.Name
+	case "admin":
+		if input.Type == "" {
+			input.Type = "client"
 		}
-	} else {
+	default:
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins and members can raise invoices"})
 	}
 
-	database.DB.Create(&inv)
-	return c.JSON(inv)
+	var id uint
+	err := database.DB.QueryRow(
+		`INSERT INTO invoices (user_id, invoice_id, client, service, amount, date, status, type, sender, decline_reason)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+		input.UserID, input.InvoiceID, input.Client, input.Service, input.Amount,
+		input.Date, input.Status, input.Type, input.Sender, input.DeclineReason,
+	).Scan(&id)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create invoice"})
+	}
+	input.ID = id
+	return c.Status(fiber.StatusCreated).JSON(input)
 }
 
 func UpdateInvoice(c *fiber.Ctx) error {
@@ -382,254 +386,265 @@ func UpdateInvoice(c *fiber.Ctx) error {
 	adminID, role, email := getAdminContext(c)
 
 	var inv models.Invoice
-	if err := database.DB.Where("id = ? AND user_id = ?", id, adminID).First(&inv).Error; err != nil {
+	if err := database.DB.Get(&inv, "SELECT * FROM invoices WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL", id, adminID); err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Invoice not found"})
 	}
 
-	// Roles logic:
-	// Clients can only update status to 'Paid' (accept and pay logic)
-	// Members cannot update invoices they didn't create (and they only update to 'Cancelled' maybe)
-	// Admin can update everything
-
-	type UpdatePayload struct {
+	var payload struct {
 		Status        string `json:"status"`
 		DeclineReason string `json:"declineReason"`
 	}
-	var up UpdatePayload
-	if err := c.BodyParser(&up); err != nil {
+	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
-	if role == "client" {
-		if inv.Type == "client" && (up.Status == "Paid" || up.Status == "Declined") {
-			inv.Status = up.Status
-			if up.Status == "Declined" {
-				inv.DeclineReason = up.DeclineReason
-			}
-		} else {
+	switch role {
+	case "client":
+		if inv.Type != "client" || (payload.Status != "Paid" && payload.Status != "Declined") {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Clients can only mark invoices as Paid or Declined"})
 		}
-	} else if role == "member" {
-		if inv.Sender == email && up.Status == "Cancelled" {
-			inv.Status = "Cancelled"
-		} else {
+		inv.Status = payload.Status
+		if payload.Status == "Declined" {
+			inv.DeclineReason = payload.DeclineReason
+		}
+	case "member":
+		if inv.Sender != email || payload.Status != "Cancelled" {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Members can only cancel their own payout requests"})
 		}
-	} else {
-		// Admin
-		if up.Status != "" {
-			inv.Status = up.Status
+		inv.Status = "Cancelled"
+	default: // admin
+		if payload.Status != "" {
+			inv.Status = payload.Status
 		}
-		if up.DeclineReason != "" {
-			inv.DeclineReason = up.DeclineReason
+		if payload.DeclineReason != "" {
+			inv.DeclineReason = payload.DeclineReason
 		}
 	}
 
-	database.DB.Save(&inv)
+	database.DB.Exec(
+		"UPDATE invoices SET status=$1, decline_reason=$2, updated_at=NOW() WHERE id=$3",
+		inv.Status, inv.DeclineReason, inv.ID,
+	)
 	return c.JSON(inv)
 }
 
-// --- TEAM MEMBERS ---
+// ─── TEAM MEMBERS ─────────────────────────────────────────────────────────────
+
 func GetTeamMembers(c *fiber.Ctx) error {
 	adminID, role, email := getAdminContext(c)
 	var members []models.TeamMember
 
-	if role == "client" {
+	switch role {
+	case "client":
 		return c.JSON([]models.TeamMember{})
-	} else if role == "member" {
-		database.DB.Where("email = ?", email).Find(&members)
-	} else {
-		database.DB.Where("user_id = ?", adminID).Find(&members)
+	case "member":
+		database.DB.Select(&members, "SELECT * FROM team_members WHERE email = $1 AND deleted_at IS NULL", email)
+	default:
+		database.DB.Select(&members, "SELECT * FROM team_members WHERE user_id = $1 AND deleted_at IS NULL", adminID)
 	}
-
 	return c.JSON(members)
 }
 
 func CreateTeamMember(c *fiber.Ctx) error {
-	member := new(models.TeamMember)
-	if err := c.BodyParser(member); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
-	}
 	adminID, _, _ := getAdminContext(c)
-	member.UserID = adminID
-	if err := database.DB.Create(&member).Error; err != nil {
-		fmt.Printf("[Debug] Failed to create team member: %v\n", err)
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to create team member in database"})
+
+	var input models.TeamMember
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
-	fmt.Printf("[Debug] Team member created: %s (ID: %d)\n", member.Name, member.ID)
+	input.UserID = adminID
 
-	password := generateRandomPassword()
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), 10)
-
-	// Send invite email in background (non-blocking)
-	if member.Email != "" {
-		// Create login user for member
-		user := models.User{
-			Name:     member.Name,
-			Email:    member.Email,
-			Password: string(hashedPassword),
-			Role:     "member",
-		}
-		database.DB.Create(&user)
-
-		go sendInviteEmail(member.Email, member.Name, member.Role, password)
+	var id uint
+	err := database.DB.QueryRow(
+		`INSERT INTO team_members (user_id, name, email, role, initials, color, tasks_num, tasks_done, clients_num, progress, working_on)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+		input.UserID, input.Name, input.Email, input.Role, input.Initials, input.Color,
+		input.TasksNum, input.TasksDone, input.ClientsNum, input.Progress, input.WorkingOn,
+	).Scan(&id)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create team member"})
 	}
-	return c.JSON(member)
+	input.ID = id
+
+	if input.Email != "" {
+		pw := randomPassword()
+		hashed, _ := bcrypt.GenerateFromPassword([]byte(pw), bcrypt.DefaultCost)
+		database.DB.Exec(
+			"INSERT INTO users (id, name, email, password, role) VALUES ($1,$2,$3,$4,'member') ON CONFLICT (email) DO NOTHING",
+			uuid.New(), input.Name, input.Email, string(hashed),
+		)
+		go sendInviteEmail(input.Email, input.Name, input.Role, pw)
+	}
+	return c.Status(fiber.StatusCreated).JSON(input)
 }
 
-func DeleteTeamMember(c *fiber.Ctx) error {
-	id := c.Params("id")
-	userID := getUserID(c)
+func sendInviteEmail(to, name, role, pw string) {
+	subject := "You've been invited to join Reecho Media CRM"
+	body := fmt.Sprintf(`Hi %s,
 
-	var member models.TeamMember
-	if err := database.DB.Where("id = ? AND user_id = ?", id, userID).First(&member).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Member not found"})
-	}
+You've been invited to join Reecho Media as a %s.
 
-	// 1. Find the actual user record to get their UUID ID and email
-	var user models.User
-	if err := database.DB.Where("email = ?", member.Email).First(&user).Error; err == nil {
-		uidStr := user.ID.String()
+Your login credentials:
+Email: %s
+Password: %s
+Login: https://reechomedia.com/login
 
-		// 2. Delete all boards and docs owned by this member
-		database.DB.Where("owner_id = ?", user.ID).Delete(&models.Board{})
-		database.DB.Where("owner_id = ?", user.ID).Delete(&models.Document{})
-		
-		// 3. Delete all access records for this email
-		database.DB.Where("target_email = ?", user.Email).Delete(&models.BoardAccess{})
-		database.DB.Where("target_email = ?", user.Email).Delete(&models.DocAccess{})
+Welcome aboard!
 
-		// 4. Delete payout requests from this member
-		database.DB.Where("type = ? AND sender = ?", "payout", member.Email).Delete(&models.Invoice{})
-
-		// 5. Delete calendar events created by this member
-		database.DB.Where("user_id = ?", uidStr).Delete(&models.CalendarEvent{})
-
-		// 6. Clean up Task assignments
-		var tasks []models.Task
-		database.DB.Where("assignees LIKE ? OR assignees LIKE ?", "%"+member.Name+"%", "%"+member.Initials+"%").Find(&tasks)
-		for _, t := range tasks {
-			names := models.SplitAssignees(t.Assignees)
-			var updated []string
-			for _, n := range names {
-				if n != member.Name && n != member.Initials {
-					updated = append(updated, n)
-				}
-			}
-			t.Assignees = strings.Join(updated, ",")
-			database.DB.Save(&t)
-		}
-
-		// 7. Delete the credentials record
-		database.DB.Delete(&user)
-	}
-
-	// 8. Finally delete the team member record
-	database.DB.Delete(&member)
-
-	return c.JSON(fiber.Map{"message": "Team member and all associated workspace data (boards, docs, payouts, events) have been permanently deleted"})
+— Reecho Media Team`, name, role, to, pw)
+	sendEmail(to, subject, body)
 }
 
 func UpdateTeamMember(c *fiber.Ctx) error {
 	id := c.Params("id")
-	userID := getUserID(c)
+	adminID := getUserIDStr(c)
+
 	var member models.TeamMember
-	if err := database.DB.Where("id = ? AND user_id = ?", id, userID).First(&member).Error; err != nil {
+	if err := database.DB.Get(&member, "SELECT * FROM team_members WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL", id, adminID); err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Member not found"})
 	}
-
 	oldEmail := member.Email
 
-	type UpdatePayload struct {
+	var input struct {
 		Name       string `json:"name"`
 		Email      string `json:"email"`
 		Role       string `json:"role"`
 		WorkingOn  string `json:"workingOn"`
 		Color      string `json:"color"`
 		ClientsNum int    `json:"clientsNum"`
-		Password   string `json:"password"` // New optional field
+		Password   string `json:"password"`
 	}
-	var up UpdatePayload
-	if err := c.BodyParser(&up); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
-	}
-
-	// Update member fields
-	member.Name = up.Name
-	member.Email = up.Email
-	member.Role = up.Role
-	member.WorkingOn = up.WorkingOn
-	member.Color = up.Color
-	member.ClientsNum = up.ClientsNum
-	member.Initials = strings.ToUpper(up.Name[:2]) // Simple initials update
-
-	if err := database.DB.Save(&member).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to update member"})
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
-	// Sync with User table
-	var user models.User
-	if err := database.DB.Where("email = ?", oldEmail).First(&user).Error; err == nil {
-		user.Email = up.Email
-		user.Name = up.Name
-		user.Role = "member"
-		if up.Password != "" {
-			hashed, _ := bcrypt.GenerateFromPassword([]byte(up.Password), 10)
-			user.Password = string(hashed)
-		}
-		database.DB.Save(&user)
+	initials := ""
+	if len(input.Name) >= 2 {
+		initials = strings.ToUpper(input.Name[:2])
 	}
 
+	database.DB.Exec(
+		`UPDATE team_members SET name=$1, email=$2, role=$3, working_on=$4, color=$5, clients_num=$6, initials=$7, updated_at=NOW() WHERE id=$8`,
+		input.Name, input.Email, input.Role, input.WorkingOn, input.Color, input.ClientsNum, initials, id,
+	)
+
+	// Sync user record
+	if input.Password != "" {
+		hashed, _ := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+		database.DB.Exec("UPDATE users SET name=$1, email=$2, password=$3 WHERE email=$4", input.Name, input.Email, string(hashed), oldEmail)
+	} else {
+		database.DB.Exec("UPDATE users SET name=$1, email=$2 WHERE email=$3", input.Name, input.Email, oldEmail)
+	}
+
+	member.Name = input.Name
+	member.Email = input.Email
+	member.Role = input.Role
+	member.WorkingOn = input.WorkingOn
+	member.Color = input.Color
+	member.ClientsNum = input.ClientsNum
+	member.Initials = initials
 	return c.JSON(member)
 }
 
-// --- CALENDAR EVENTS ---
+func DeleteTeamMember(c *fiber.Ctx) error {
+	id := c.Params("id")
+	adminID := getUserIDStr(c)
+
+	var member models.TeamMember
+	if err := database.DB.Get(&member, "SELECT * FROM team_members WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL", id, adminID); err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Member not found"})
+	}
+
+	// Clean up owned boards & docs, access grants, payout requests, calendar events
+	database.DB.Exec("DELETE FROM board_accesses WHERE target_email = $1", member.Email)
+	database.DB.Exec("DELETE FROM doc_accesses  WHERE target_email = $1", member.Email)
+	database.DB.Exec("UPDATE invoices SET deleted_at=NOW() WHERE type='payout' AND sender=$1", member.Email)
+
+	// Remove from task assignees
+	var tasks []models.Task
+	database.DB.Select(&tasks,
+		"SELECT * FROM tasks WHERE (assignees LIKE $1 OR assignees LIKE $2) AND deleted_at IS NULL",
+		"%"+member.Name+"%", "%"+member.Initials+"%")
+	for _, t := range tasks {
+		parts := models.SplitAssignees(t.Assignees)
+		var updated []string
+		for _, p := range parts {
+			if p != member.Name && p != member.Initials {
+				updated = append(updated, p)
+			}
+		}
+		database.DB.Exec("UPDATE tasks SET assignees=$1, updated_at=NOW() WHERE id=$2", strings.Join(updated, ","), t.ID)
+	}
+
+	// Delete user login & soft-delete member record
+	database.DB.Exec("DELETE FROM users WHERE email = $1", member.Email)
+	database.DB.Exec("UPDATE team_members SET deleted_at=NOW() WHERE id=$1", id)
+
+	return c.JSON(fiber.Map{"message": "Team member deleted"})
+}
+
+// ─── CALENDAR EVENTS ──────────────────────────────────────────────────────────
+
 func GetCalendarEvents(c *fiber.Ctx) error {
 	adminID, role, email := getAdminContext(c)
 	var events []models.CalendarEvent
 
-	if role == "client" {
+	switch role {
+	case "client":
 		var client models.Client
-		if err := database.DB.Where("email = ?", email).First(&client).Error; err == nil {
-			database.DB.Where("user_id = ? AND client = ?", adminID, client.Name).Find(&events)
+		if err := database.DB.Get(&client, "SELECT * FROM clients WHERE email = $1 AND deleted_at IS NULL LIMIT 1", email); err == nil {
+			database.DB.Select(&events,
+				"SELECT * FROM calendar_events WHERE user_id = $1 AND client = $2 AND deleted_at IS NULL",
+				adminID, client.Name)
 		}
-	} else if role == "member" {
+	case "member":
 		var member models.TeamMember
-		database.DB.Where("email = ?", email).First(&member)
-		
+		database.DB.Get(&member, "SELECT * FROM team_members WHERE email = $1 AND deleted_at IS NULL LIMIT 1", email)
 		var clientNames []string
-		database.DB.Model(&models.Task{}).
-			Where("user_id = ? AND (assignees LIKE ? OR assignees LIKE ?)", 
-				adminID, "%"+member.Name+"%", "%"+member.Initials+"%").
-			Distinct("client").
-			Pluck("client", &clientNames)
-		
-		database.DB.Where("user_id = ? AND client IN ?", adminID, clientNames).Find(&events)
-	} else {
-		database.DB.Where("user_id = ?", adminID).Find(&events)
+		database.DB.Select(&clientNames,
+			"SELECT DISTINCT client FROM tasks WHERE user_id = $1 AND (assignees LIKE $2 OR assignees LIKE $3) AND deleted_at IS NULL",
+			adminID, "%"+member.Name+"%", "%"+member.Initials+"%")
+		if len(clientNames) > 0 {
+			query, args, _ := buildIN("SELECT * FROM calendar_events WHERE user_id = ? AND client IN (?) AND deleted_at IS NULL", adminID, clientNames)
+			database.DB.Select(&events, query, args...)
+		}
+	default:
+		database.DB.Select(&events,
+			"SELECT * FROM calendar_events WHERE user_id = $1 AND deleted_at IS NULL", adminID)
 	}
-
 	return c.JSON(events)
 }
 
 func CreateCalendarEvent(c *fiber.Ctx) error {
-	event := new(models.CalendarEvent)
-	if err := c.BodyParser(event); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
+	userID := getUserIDStr(c)
+
+	var input models.CalendarEvent
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
-	event.UserID = getUserID(c)
-	database.DB.Create(&event)
-	return c.JSON(event)
+	input.UserID = userID
+
+	var id uint
+	err := database.DB.QueryRow(
+		`INSERT INTO calendar_events (user_id, title, client, platform, date, color) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+		input.UserID, input.Title, input.Client, input.Platform, input.Date, input.Color,
+	).Scan(&id)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create event"})
+	}
+	input.ID = id
+	return c.Status(fiber.StatusCreated).JSON(input)
 }
 
 func DeleteCalendarEvent(c *fiber.Ctx) error {
 	id := c.Params("id")
-	userID := getUserID(c)
-	database.DB.Where("id = ? AND user_id = ?", id, userID).Delete(&models.CalendarEvent{})
+	userID := getUserIDStr(c)
+	database.DB.Exec("UPDATE calendar_events SET deleted_at=NOW() WHERE id=$1 AND user_id=$2", id, userID)
 	return c.JSON(fiber.Map{"message": "Event deleted"})
 }
 
-// --- CONTACT FORM ---
+// ─── CONTACT FORM ─────────────────────────────────────────────────────────────
+
 type ContactRequest struct {
 	Name               string `json:"name"`
 	Email              string `json:"email"`
@@ -645,12 +660,33 @@ func ContactUs(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
+	subject := fmt.Sprintf("🚀 New Project Inquiry from %s!", req.Name)
+	body := fmt.Sprintf(`Hey Team Reecho,
 
-	subject := fmt.Sprintf("🚀 New Project Inquiry from %s! Let's build something epic.", req.Name)
-	body := fmt.Sprintf("Hey Team Reecho,\n\nWe just received a fresh inquiry from an exciting new lead! Here are all the details to get the ball rolling:\n\n✨ The Visionary: %s\n📧 Email Address: %s\n📱 Contact No: %s\n\n💼 Company: %s\n🌐 Website: %s\n\n🎯 Services Desired: %s\n\n💬 Their Ideas & Message:\n\"%s\"\n\nLet's reach out and create some magic! 🔥",
-		req.Name, req.Email, req.ContactNo, req.CompanyName, req.CompanyWebsite, req.ServicesLookingFor, req.Details)
+New inquiry received:
 
-	sendEmail("priyathamtella@gmail.com", subject, body)
+✨ Name: %s
+📧 Email: %s
+📱 Contact: %s
+💼 Company: %s
+🌐 Website: %s
+🎯 Services: %s
 
+💬 Message:
+"%s"
+
+— Reecho Media CRM Auto-Notify`, req.Name, req.Email, req.ContactNo, req.CompanyName, req.CompanyWebsite, req.ServicesLookingFor, req.Details)
+	sendEmail(notifyEmail(), subject, body)
 	return c.JSON(fiber.Map{"message": "Inquiry sent successfully"})
+}
+
+// ─── UTILITY ──────────────────────────────────────────────────────────────────
+
+// buildIN wraps sqlx.In and rebinds for Postgres $N syntax.
+func buildIN(query string, args ...interface{}) (string, []interface{}, error) {
+	q, a, err := sqlx.In(query, args...)
+	if err != nil {
+		return query, args, err
+	}
+	return database.DB.Rebind(q), a, nil
 }

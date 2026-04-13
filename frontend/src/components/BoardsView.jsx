@@ -7,11 +7,10 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import ShareModal from "./ShareModal";
+import { API } from "../api";
 
-// Helper: normalize board/doc ID from GORM response (may be ID or id)
+// Helper: normalize board/doc ID
 const getId = (item) => item?.id || item?.ID || "";
-
-const API = "https://api.reechomedia.com/api";
 
 
 // ─── Pre-built template boards with DEMO content ─────────────────────────────
@@ -322,7 +321,7 @@ const BoardsView = ({ isDark = false, boards = [], docs = [], fetchBoards, fetch
     <div className={`h-full flex flex-col transition-colors duration-300 ${isDark ? "bg-slate-900 text-white" : "bg-[#F0F4F8] text-slate-900"}`}>
 
       {/* Top bar */}
-      <div className={`flex items-center justify-between px-8 py-5 border-b ${isDark ? "border-slate-800 bg-slate-950/50" : "border-slate-200 bg-white/60"} backdrop-blur-sm flex-shrink-0`}>
+      <div className={`flex items-start md:items-center justify-between px-4 md:px-8 py-4 md:py-5 border-b gap-3 flex-wrap ${isDark ? "border-slate-800 bg-slate-950/50" : "border-slate-200 bg-white/60"} backdrop-blur-sm flex-shrink-0`}>
         <div>
           <h1 className={`text-2xl font-black ${isDark ? "text-white" : "text-slate-900"}`}>
             {isAdmin ? "My Workspace" : "My Boards & Docs"}
@@ -352,7 +351,7 @@ const BoardsView = ({ isDark = false, boards = [], docs = [], fetchBoards, fetch
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-8 space-y-10">
+      <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-10">
 
         {/* ── MY BOARDS ── */}
         <section>
@@ -362,7 +361,7 @@ const BoardsView = ({ isDark = false, boards = [], docs = [], fetchBoards, fetch
           {displayBoards.length === 0 && !isAdmin ? (
             <EmptyState isDark={isDark} onCreateBoard={() => setShowModal(true)} />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5">
               {userRole !== "client" && (
                 <motion.div whileHover={{ scale: 1.01, y: -2 }} onClick={() => setShowModal(true)}
                   className={`group border-2 border-dashed rounded-2xl p-6 flex flex-col items-center justify-center h-44 cursor-pointer transition-all ${isDark ? "border-slate-700 hover:border-indigo-500 hover:bg-indigo-900/20" : "border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/40"}`}>
@@ -380,7 +379,7 @@ const BoardsView = ({ isDark = false, boards = [], docs = [], fetchBoards, fetch
           <h2 className={`text-xs font-bold uppercase tracking-widest mb-4 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
             {isAdmin ? "My Documents" : "Documents"}
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5">
             {userRole !== "client" && (
               <motion.div whileHover={{ scale: 1.01, y: -2 }} onClick={handleCreateDoc}
                 className={`group border-2 border-dashed rounded-2xl p-6 flex flex-col items-center justify-center h-44 cursor-pointer transition-all ${isDark ? "border-slate-700 hover:border-emerald-500 hover:bg-emerald-900/20" : "border-slate-300 hover:border-emerald-400 hover:bg-emerald-50/40"}`}>
@@ -435,7 +434,7 @@ const BoardsView = ({ isDark = false, boards = [], docs = [], fetchBoards, fetch
                     {mBoards.length > 0 && (
                       <>
                         <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${isDark ? "text-slate-600" : "text-slate-300"}`}>Boards</p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mb-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5 mb-6">
                           {mBoards.map((board, i) => renderBoardCard(board, i))}
                         </div>
                       </>
@@ -444,7 +443,7 @@ const BoardsView = ({ isDark = false, boards = [], docs = [], fetchBoards, fetch
                     {mDocsGroup.docs.length > 0 && (
                       <>
                         <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${isDark ? "text-slate-600" : "text-slate-300"}`}>Documents</p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5">
                           {mDocsGroup.docs.map((doc, i) => renderDocCard(doc, i))}
                         </div>
                       </>
@@ -463,7 +462,7 @@ const BoardsView = ({ isDark = false, boards = [], docs = [], fetchBoards, fetch
         {isAdmin && (
           <section>
             <h2 className={`text-xs font-bold uppercase tracking-widest mb-4 ${isDark ? "text-slate-500" : "text-slate-400"}`}>Start from Template</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5">
               {TEMPLATES.map(t => (
                 <motion.div key={t.id} whileHover={{ y: -4, scale: 1.01 }}
                   className={`rounded-2xl p-5 border cursor-pointer transition-all shadow-sm hover:shadow-xl ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
@@ -504,3 +503,4 @@ const BoardsView = ({ isDark = false, boards = [], docs = [], fetchBoards, fetch
 };
 
 export default BoardsView;
+

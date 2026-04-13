@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_BASE } from '../api';
 
 const Register = () => {
   const [name, setName] = useState('');
@@ -16,12 +17,7 @@ const Register = () => {
     try {
       // Hits app.Post("/register", controllers.Register) in your Go backend
 
-      const response = await axios.post('https://api.reechomedia.com/register', {
-
-        name,
-        email,
-        password // Will be hashed via bcrypt on the backend
-      });
+      const response = await axios.post(`${API_BASE}/register`, { name, email, password });
 
       if (response.data.token) {
         // Store JWT for future authenticated requests

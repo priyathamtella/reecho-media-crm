@@ -11,7 +11,7 @@ import {
 import ShareModal from "./ShareModal";
 
 
-const API = "https://api.reechomedia.com/api";
+import { API } from "../api";
 
 
 const DocumentEditor = () => {
@@ -184,7 +184,7 @@ const DocumentEditor = () => {
         <div className={`h-full flex flex-col ${dm ? "bg-slate-900 text-white" : "bg-gray-50 text-slate-900"}`}>
 
             {/* ── TOPBAR ── */}
-            <div className={`flex items-center justify-between px-6 py-3 border-b flex-shrink-0 ${dm ? "bg-slate-950 border-slate-800" : "bg-white border-slate-200"} shadow-sm`}>
+            <div className={`flex items-center justify-between px-3 md:px-6 py-3 border-b flex-shrink-0 gap-2 flex-wrap ${dm ? "bg-slate-950 border-slate-800" : "bg-white border-slate-200"} shadow-sm`}>
                 <div className="flex items-center gap-3">
                     <button onClick={() => navigate(-1)} className={`p-1.5 rounded-lg transition-colors ${dm ? "hover:bg-slate-800 text-slate-400" : "hover:bg-slate-100 text-slate-500"}`}>
                         <ArrowLeft size={16} />
@@ -316,7 +316,7 @@ const DocumentEditor = () => {
 
             {/* ── FORMATTING TOOLBAR ── */}
             {canEdit && (
-                <div className={`flex flex-wrap items-center gap-0.5 px-6 py-2 border-b flex-shrink-0 ${dm ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"}`}>
+                <div className={`flex flex-wrap items-center gap-0.5 px-3 md:px-6 py-2 border-b flex-shrink-0 overflow-x-auto ${dm ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"}`}>
                     <ToolGroup>
                         <FmtBtn icon={<Bold size={14} />} onClick={() => execCmd("bold")} title="Bold" dm={dm} />
                         <FmtBtn icon={<Italic size={14} />} onClick={() => execCmd("italic")} title="Italic" dm={dm} />
@@ -359,7 +359,7 @@ const DocumentEditor = () => {
                 contentEditable={canEdit}
                 suppressContentEditableWarning
                 onInput={() => triggerSave()}
-                className={`flex-1 overflow-y-auto outline-none px-16 py-12 text-base leading-9 ${dm ? "text-slate-100" : "text-slate-800"}`}
+                className={`flex-1 overflow-y-auto outline-none px-4 md:px-16 py-6 md:py-12 text-base leading-9 ${dm ? "text-slate-100" : "text-slate-800"}`}
                 style={{ fontFamily: "'Inter', sans-serif", minHeight: 0 }}
             />
             {/* Global "page" styles injected for contenteditable */}
@@ -439,3 +439,4 @@ const FmtBtn = ({ icon, onClick, title, dm }) => (
 );
 
 export default DocumentEditor;
+

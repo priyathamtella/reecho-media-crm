@@ -4,7 +4,7 @@ import axios from "axios";
 import { Users, X, Check, Share2, Loader2 } from "lucide-react";
 
 
-const API = "https://api.reechomedia.com/api";
+import { API } from "../api";
 
 
 /**
@@ -257,3 +257,4 @@ const ShareModal = ({ isOpen, onClose, resourceType, resourceId, isDark }) => {
 };
 
 export default ShareModal;
+
