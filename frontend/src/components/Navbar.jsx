@@ -30,13 +30,18 @@ const Navbar = () => {
     <nav className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 ${scrolled ? 'bg-[var(--nav-bg)] border-b border-[var(--border)] backdrop-blur-md py-4' : 'bg-transparent py-6'}`}>
       <div className="max-w-[1600px] mx-auto px-6 lg:px-12 flex justify-between items-center text-[var(--text)]">
         <Link to="/" className="flex items-center hover:scale-110 transition-transform">
-
+<<<<<<< Updated upstream
           <img 
             src="https://res.cloudinary.com/dxcygn064/image/upload/v1773517532/Untitled_design__1_-removebg-preview_h65kii.png" 
             alt="Reecho Media" 
             className="h-16 w-auto object-contain transition-all duration-300 scale-[1.75]"
             style={{ filter: isDark ? 'invert(1)' : 'none' }}
-
+=======
+          <img
+            src="https://res.cloudinary.com/dxcygn064/image/upload/v1773517532/Untitled_design__1_-removebg-preview_h65kii.png"
+            alt="Reecho Media"
+            className="h-16 w-auto object-contain dark:invert transition-all duration-300 scale-150"
+>>>>>>> Stashed changes
           />
         </Link>
 
